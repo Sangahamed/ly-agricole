@@ -63,7 +63,11 @@ class Depenses
                 'cree_par' => $auteur->id,
             ]);
 
-            if (! self::exigeValidation($montant)) {
+            if ($auteur->aLeRole(Role::Direction)) {
+                // Compte supérieur : payée dès la saisie, validée à son nom (2026-10-06).
+                $mouvement = Tresorerie::payerDepense($depense, $auteur);
+                $depense->update(['statut' => StatutDepense::Payee, 'mouvement_id' => $mouvement->id, 'valide_par' => $auteur->id, 'valide_at' => now()]);
+            } elseif (! self::exigeValidation($montant)) {
                 $mouvement = Tresorerie::payerDepense($depense, $auteur);
                 $depense->update(['statut' => StatutDepense::Payee, 'mouvement_id' => $mouvement->id]);
             }
@@ -119,14 +123,14 @@ class Depenses
     }
 
     /**
-     * « Supprimer » une dépense, réservé à la direction (décision du 2026-10-01) : rien ne
+     * « Supprimer » une dépense, par son auteur ou la direction (2026-10-01, puis 2026-10-06) : rien ne
      * s'efface. À valider : elle passe « annulée », rien n'avait été payé. Payée : le paiement
      * est contre-passé (l'argent revient dans la caisse), elle passe « annulée ».
      */
     public static function annuler(Depense $depense, User $auteur, string $motif): Depense
     {
-        if (! $auteur->can('annuler-operations')) {
-            throw new OperationRefusee('Seule la direction peut supprimer (annuler) une dépense.');
+        if (! $auteur->can('annuler-operation', $depense)) {
+            throw new OperationRefusee('Seuls l\'auteur de la dépense et la direction peuvent la supprimer (annuler).');
         }
         $motif = trim($motif);
         if (mb_strlen($motif) < 5) {
@@ -142,7 +146,7 @@ class Depenses
                 throw new OperationRefusee('Cette dépense est déjà '.mb_strtolower($depense->statut->libelle()).'.');
             }
 
-            $depense->update(['statut' => StatutDepense::Annulee, 'motif_refus' => 'Annulée par la direction : '.$motif]);
+            $depense->update(['statut' => StatutDepense::Annulee, 'motif_refus' => 'Annulée par '.$auteur->nom.' : '.$motif]);
 
             return $depense->refresh();
         });

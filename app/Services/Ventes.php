@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Enums\CleParametre;
+use App\Enums\Role;
 use App\Enums\StatutAchat;
 use App\Enums\StatutLot;
 use App\Enums\StatutVente;
 use App\Enums\TypeAcheteur;
 use App\Exceptions\OperationRefusee;
 use App\Models\Campagne;
+use App\Models\Encaissement;
 use App\Models\Lot;
 use App\Models\Parametre;
 use App\Models\User;
@@ -92,7 +94,10 @@ class Ventes
                 'cree_par' => $auteur->id,
             ]);
 
-            if ($seuil !== null && $montant <= $seuil) {
+            if ($auteur->aLeRole(Role::Direction)) {
+                // Compte supérieur : validée dès la saisie, à son nom (2026-10-06).
+                self::executer($vente, $auteur, validation: true);
+            } elseif ($seuil !== null && $montant <= $seuil) {
                 self::executer($vente, $auteur);
             }
 
@@ -121,6 +126,49 @@ class Ventes
             $vente->update(['statut' => StatutVente::Refuse, 'valide_par' => $validateur->id, 'valide_at' => now(), 'motif_refus' => trim($motif)]);
 
             return $vente;
+        });
+    }
+
+    /**
+     * « Supprimer » une vente, par son auteur ou la direction (2026-10-06) : rien ne s'efface.
+     * À valider : elle passe « annulée », rien n'avait bougé. Validée : les encaissements sont
+     * contre-passés (l'argent ressort du compte), les kilos reviennent dans le lot, qui
+     * redevient « ouvert » s'il était passé « vendu ». Tout ou rien, motif obligatoire.
+     */
+    public static function annuler(Vente $vente, User $auteur, string $motif): Vente
+    {
+        if (! $auteur->can('annuler-operation', $vente)) {
+            throw new OperationRefusee('Seuls l\'auteur de la vente et la direction peuvent la supprimer (annuler).');
+        }
+        $motif = trim($motif);
+        if (mb_strlen($motif) < 5) {
+            throw new OperationRefusee('Le motif de l\'annulation est obligatoire (5 caractères au moins).');
+        }
+
+        return DB::transaction(function () use ($vente, $auteur, $motif) {
+            $vente = Vente::query()->lockForUpdate()->findOrFail($vente->id);
+
+            if (in_array($vente->statut, [StatutVente::Refuse, StatutVente::Annule], true)) {
+                throw new OperationRefusee("La vente {$vente->reference} est déjà ".mb_strtolower($vente->statut->libelle()).'.');
+            }
+
+            if ($vente->statut === StatutVente::Valide) {
+                $contrePasses = Encaissement::query()->where('vente_id', $vente->id)->whereNotNull('annule_id')->pluck('annule_id');
+                Encaissement::query()->where('vente_id', $vente->id)->whereNull('annule_id')->whereNotIn('id', $contrePasses)
+                    ->orderBy('id')->get()
+                    ->each(fn (Encaissement $e) => Encaissements::contrePasser($e, $motif, $auteur));
+
+                Stock::annulerSortieVente($vente, $motif, $auteur);
+
+                $lot = Lot::query()->lockForUpdate()->findOrFail($vente->lot_id);
+                if ($lot->statut === StatutLot::Vendu && $lot->stock() > 0) {
+                    $lot->update(['statut' => StatutLot::Ouvert]);
+                }
+            }
+
+            $vente->update(['statut' => StatutVente::Annule, 'annule_par' => $auteur->id, 'annule_at' => now(), 'motif_annulation' => $motif]);
+
+            return $vente->refresh();
         });
     }
 

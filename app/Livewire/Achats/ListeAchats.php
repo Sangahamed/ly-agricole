@@ -89,19 +89,20 @@ class ListeAchats extends Component
 
     public function preparerAnnulation(string $id): void
     {
-        $this->authorize('annuler-operations');
+        $achat = Achat::query()->findOrFail($id);
+        $this->authorize('annuler-operation', $achat);
         $this->resetErrorBag();
         $this->motifAnnulation = '';
-        $this->aAnnuler = Achat::query()->findOrFail($id)->id;
+        $this->aAnnuler = $achat->id;
     }
 
     /** « Supprimer » : annulation par contre-passation (le service revérifie droit, motif et stock). */
     public function annulerAchat(): void
     {
-        $this->authorize('annuler-operations');
         $this->resetErrorBag();
 
         try {
+            // Le service vérifie le droit (auteur ou direction) sur la ligne elle-même.
             $achat = Achats::annuler(Achat::query()->findOrFail((string) $this->aAnnuler), $this->moi(), $this->motifAnnulation);
         } catch (OperationRefusee $e) {
             throw ValidationException::withMessages(['motifAnnulation' => $e->getMessage()]);
@@ -133,7 +134,7 @@ class ListeAchats extends Component
                 ->orderByDesc('date_achat')->paginate(self::PAR_PAGE),
             'statuts' => StatutAchat::cases(),
             'peutValider' => $toutVoir,
-            'peutAnnuler' => $moi->can('annuler-operations'),
+            'estDirection' => $moi->can('annuler-operations'),
             'achatAAnnuler' => $this->aAnnuler === null ? null : Achat::query()->find($this->aAnnuler),
             'moi' => $moi->id,
         ]);

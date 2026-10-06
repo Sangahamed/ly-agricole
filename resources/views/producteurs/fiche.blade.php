@@ -32,7 +32,7 @@
                 <a href="{{ route('producteurs.modifier', $producteur) }}"
                     class="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm text-stone-800 hover:bg-stone-50">Modifier</a>
             @endcan
-            @can('annuler-operations')
+            @can('annuler-operation', $producteur)
                 {{-- Confirmation dans la page (pas de boîte du navigateur). --}}
                 <details class="relative">
                     <summary class="cursor-pointer list-none rounded-md border border-red-200 bg-white px-4 py-2 text-sm text-red-800 hover:bg-red-50 [&::-webkit-details-marker]:hidden">Supprimer</summary>

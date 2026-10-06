@@ -100,9 +100,10 @@ class EcransVentesTest extends TestCase
     }
 
     #[Test]
-    public function la_direction_vend_400_kg_depuis_l_ecran_sans_seuil_defini(): void
+    public function le_comptable_vend_400_kg_depuis_l_ecran_sans_seuil_defini(): void
     {
-        $this->actingAs($this->direction);
+        // Le comptable : sa vente attend une autre personne (la direction, elle, est validée tout de suite).
+        $this->actingAs($this->comptable);
 
         Livewire::test(FormulaireVente::class)
             ->set('lotId', (string) $this->lot->id)
@@ -125,14 +126,14 @@ class EcransVentesTest extends TestCase
     public function une_vente_sous_le_seuil_se_valide_depuis_la_liste_par_un_autre(): void
     {
         Parametre::query()->create(['cle' => CleParametre::SeuilValidationVente, 'valeur' => '100']);
-        $this->actingAs($this->direction);
+        $this->actingAs($this->comptable);
         Livewire::test(FormulaireVente::class)
             ->set('lotId', (string) $this->lot->id)->set('acheteurNom', 'Grossiste Abidjan')
             ->set('poidsKg', '100')->set('prixKg', '900')->call('enregistrer')->assertHasNoErrors();
         $vente = Vente::firstOrFail();
         $this->assertSame(StatutVente::AValider, $vente->statut);
 
-        $this->actingAs($this->comptable);
+        $this->actingAs($this->direction);
         Livewire::test(ListeVentes::class)
             ->assertSeeHtml("wire:click=\"valider('{$vente->id}')\"")
             ->call('valider', $vente->id)

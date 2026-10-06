@@ -10,9 +10,28 @@
                     — {{ $pret->producteur->village->nom }} · campagne {{ $pret->campagne->produit->nom }} {{ $pret->campagne->code }}
                 </p>
             </div>
-            <p class="text-lg font-semibold" id="statut-pret">{{ $pret->statut->libelle() }}</p>
+            <div class="flex flex-wrap items-center gap-3">
+                @if ($peutAnnuler)
+                    <a href="{{ route('prets.nouveau', ['corrige' => $pret->id]) }}" class="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-800 hover:bg-stone-50">Modifier</a>
+                    <button type="button" wire:click="ouvrirAnnulation" class="rounded-md px-3 py-1.5 text-sm text-red-800 hover:bg-red-50">Supprimer</button>
+                @endif
+                <p class="text-lg font-semibold" id="statut-pret">{{ $pret->statut->libelle() }}</p>
+            </div>
         </div>
     </div>
+
+    @if ($annulationOuverte)
+        <form wire:submit="annulerPret" class="mb-6 rounded-md border border-red-200 bg-red-50 p-4">
+            <p class="text-sm text-red-950">Le prêt passe « annulé » : il ne compte plus dans les totaux, mais reste visible avec qui l'a annulé et pourquoi.</p>
+            <label for="motifAnnulation" class="mt-3 block text-sm font-medium text-red-950">Motif de l'annulation</label>
+            <input wire:model="motifAnnulation" id="motifAnnulation" type="text" class="mt-1 block w-full rounded-md border border-red-300 px-3 py-2 focus:outline-none">
+            @error('motifAnnulation') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+            <div class="mt-3 flex gap-2">
+                <button type="submit" class="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800">Supprimer le prêt</button>
+                <button type="button" wire:click="$set('annulationOuverte', false)" class="rounded-md px-4 py-2 text-sm text-stone-700 hover:bg-stone-100">Garder</button>
+            </div>
+        </form>
+    @endif
 
     @if ($statut !== '')
         <p class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">{{ $statut }}</p>
@@ -54,6 +73,9 @@
                 Partie liée (art. 17.3) — <a href="{{ route('prets.accord', $pret) }}" target="_blank" class="underline">accord écrit</a>
             </div>
         @endif
+        @if ($pret->motif_annulation)
+            <div class="sm:col-span-2 lg:col-span-4 text-red-800" id="annulation">Annulé par {{ $pret->annuleur?->nom }}, le {{ $pret->annule_at?->format('d/m/Y') }} : {{ $pret->motif_annulation }}</div>
+        @endif
         @if ($pret->motif_refus)
             <div class="sm:col-span-2 lg:col-span-4 text-red-800">Refusé : {{ $pret->motif_refus }}</div>
         @endif
@@ -74,7 +96,8 @@
         </div>
         <ul class="mt-3 space-y-1 text-sm">
             @forelse ($pret->validations as $v)
-                <li>✓ {{ $v->user->nom }}, le {{ $v->created_at->format('d/m/Y à H:i') }}</li>
+                <li>✓ {{ $v->user->nom }}, le {{ $v->created_at->format('d/m/Y à H:i') }}
+                    @if ($v->user_id === $pret->cree_par) <span class="text-stone-500">— accordé directement par la direction, sans 2e accord</span>@endif</li>
             @empty
                 <li class="text-stone-500">Aucune validation pour l'instant.</li>
             @endforelse

@@ -4,11 +4,14 @@ namespace App\Livewire\Prets;
 
 use App\Enums\CleParametre;
 use App\Enums\FormePret;
+use App\Enums\Role;
 use App\Enums\StatutCampagne;
+use App\Enums\StatutPret;
 use App\Exceptions\OperationRefusee;
 use App\Models\Campagne;
 use App\Models\Parametre;
 use App\Models\Parcelle;
+use App\Models\Pret;
 use App\Models\Producteur;
 use App\Models\User;
 use App\Services\CautionSolidaire;
@@ -17,6 +20,7 @@ use App\Support\Format;
 use App\Support\Montant;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -58,6 +62,10 @@ class FormulairePret extends Component
 
     public bool $partieLiee = false;
 
+    /** « Modifier » un prêt = le remplacer : l'ancien passe « annulé », la trace reste. */
+    #[Url(as: 'corrige', except: '')]
+    public string $corrigeId = '';
+
     /** @var TemporaryUploadedFile|null */
     public $accordEcrit = null;
 
@@ -65,6 +73,29 @@ class FormulairePret extends Component
     {
         $this->authorize('saisir-prets');
         $this->campagneId = (string) (Campagne::query()->where('statut', StatutCampagne::Ouverte)->value('id') ?? '');
+
+        if ($this->corrigeId !== '') {
+            $pret = $this->pretCorrige();
+            $this->producteurId = $pret->producteur_id;
+            $this->campagneId = (string) $pret->campagne_id;
+            $this->montant = (string) $pret->montant_fcfa;
+            $this->forme = $pret->forme->value;
+            $this->prixReference = $pret->prix_reference_kg_fcfa === null ? '' : (string) $pret->prix_reference_kg_fcfa;
+            $this->echeance = $pret->echeance->toDateString();
+            $this->parcelleIds = $pret->parcelles()->pluck('parcelles.id')->all();
+            $this->partieLiee = $pret->partie_liee;
+        }
+    }
+
+    /** Le prêt à remplacer : à son auteur ou à la direction, et rien encore remis. */
+    private function pretCorrige(): Pret
+    {
+        $pret = Pret::query()->findOrFail($this->corrigeId);
+        $this->authorize('annuler-operation', $pret);
+        abort_unless(in_array($pret->statut, [StatutPret::Demande, StatutPret::Valide], true) && $pret->montantRemis() === 0, 403,
+            'Ce prêt ne se modifie plus : quelque chose a déjà été remis au producteur.');
+
+        return $pret;
     }
 
     public function updatedProducteurId(): void
@@ -86,7 +117,7 @@ class FormulairePret extends Component
             'echeance' => ['required', 'date', 'after_or_equal:today'],
             'parcelleIds' => ['array'],
             'parcelleIds.*' => ['uuid'],
-            'accordEcrit' => [$this->partieLiee ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
+            'accordEcrit' => [$this->partieLiee && $this->accordDuPretCorrige() === null ? 'required' : 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
         ], [
             'accordEcrit.required' => 'Producteur lié à la direction : joindre l\'accord écrit (contrat, art. 17.3).',
             'echeance.after_or_equal' => 'L\'échéance ne peut pas être passée.',
@@ -101,18 +132,29 @@ class FormulairePret extends Component
         /** @var User $auteur */
         $auteur = auth()->user();
         $chemin = $this->partieLiee ? $this->accordEcrit?->store('prets/accords', 'local') : null;
+        $donnees = [
+            'producteur_id' => $this->producteurId,
+            'campagne_id' => (int) $this->campagneId,
+            'montant_fcfa' => (int) Montant::depuisSaisie($this->montant),
+            'forme' => FormePret::from($this->forme),
+            'echeance' => Carbon::parse($this->echeance),
+            'prix_reference_kg_fcfa' => Montant::depuisSaisie($this->prixReference),
+            'parcelle_ids' => array_values($this->parcelleIds),
+            'partie_liee' => $this->partieLiee,
+        ];
 
         try {
-            $pret = Prets::demander([
-                'producteur_id' => $this->producteurId,
-                'campagne_id' => (int) $this->campagneId,
-                'montant_fcfa' => (int) Montant::depuisSaisie($this->montant),
-                'forme' => FormePret::from($this->forme),
-                'echeance' => Carbon::parse($this->echeance),
-                'prix_reference_kg_fcfa' => Montant::depuisSaisie($this->prixReference),
-                'parcelle_ids' => array_values($this->parcelleIds),
-                'partie_liee' => $this->partieLiee,
-            ], $auteur, $chemin ?: null);
+            $pret = DB::transaction(function () use ($donnees, $auteur, $chemin) {
+                if ($this->corrigeId === '') {
+                    return Prets::demander($donnees, $auteur, $chemin ?: null);
+                }
+                // Annuler d'abord : l'ancien montant ne doit pas compter dans le plafond du nouveau.
+                $ancien = Prets::annuler($this->pretCorrige(), $auteur, 'Modifié : remplacé par une nouvelle saisie');
+                $nouveau = Prets::demander($donnees, $auteur, ($chemin ?: null) ?? ($this->partieLiee ? $ancien->accord_ecrit : null));
+                $ancien->update(['motif_annulation' => "Modifié : remplacé par le prêt {$nouveau->reference}"]);
+
+                return $nouveau;
+            });
         } catch (OperationRefusee $e) {
             if ($chemin) {
                 Storage::disk('local')->delete($chemin);
@@ -120,8 +162,17 @@ class FormulairePret extends Component
             throw ValidationException::withMessages(['montant' => $e->getMessage()]);
         }
 
-        session()->flash('statut', "Demande {$pret->reference} enregistrée : {$pret->validations_requises} validation(s) de la direction requise(s).");
+        session()->flash('statut', match (true) {
+            $this->corrigeId !== '' => "Prêt modifié : il est remplacé par {$pret->reference}, l'ancien reste visible, marqué annulé.",
+            $pret->statut === StatutPret::Valide => "Prêt {$pret->reference} accordé directement (direction) : il peut être versé.",
+            default => "Demande {$pret->reference} enregistrée : {$pret->validations_requises} validation(s) de la direction requise(s).",
+        });
         $this->redirectRoute('prets.fiche', $pret);
+    }
+
+    private function accordDuPretCorrige(): ?string
+    {
+        return $this->corrigeId === '' ? null : Pret::query()->whereKey($this->corrigeId)->value('accord_ecrit');
     }
 
     private function producteurChoisi(): ?Producteur
@@ -132,6 +183,8 @@ class FormulairePret extends Component
     public function render(): View
     {
         $seuil = Parametre::entier(CleParametre::SeuilValidationPret);
+        /** @var User $moi */
+        $moi = auth()->user();
 
         // Caution solidaire du groupe (question 37) : message générique, jamais le nom d'un autre producteur.
         $caution = $this->producteurId === '' ? null : ($this->producteurChoisi() === null ? null : CautionSolidaire::controle($this->producteurChoisi()));
@@ -144,9 +197,12 @@ class FormulairePret extends Component
                 : Parcelle::query()->where('producteur_id', $this->producteurId)->where('actif', true)->orderBy('nom')->get(),
             'campagnes' => Campagne::query()->with('produit')->where('statut', '!=', StatutCampagne::Cloturee)->orderByDesc('debut')->get(),
             'formes' => FormePret::cases(),
-            'regleValidation' => $seuil === null
+            'pretCorrige' => $this->corrigeId === '' ? null : Pret::query()->find($this->corrigeId),
+            'regleValidation' => $moi->aLeRole(Role::Direction)
+                ? 'Vous êtes la direction : votre prêt est accordé dès l\'enregistrement, sans autre validation.'
+                : ($seuil === null
                 ? 'Seuil non défini : toute demande sera validée par deux personnes de la direction.'
-                : 'Au-dessus de '.Format::fcfa($seuil).', deux validations de la direction ; en dessous, une.',
+                : 'Au-dessus de '.Format::fcfa($seuil).', deux validations de la direction ; en dessous, une.'),
         ]);
     }
 }

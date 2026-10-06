@@ -97,20 +97,21 @@ class ListeDepenses extends Component
 
     public function preparerAnnulation(string $id): void
     {
-        $this->authorize('annuler-operations');
+        $depense = Depense::query()->findOrFail($id);
+        $this->authorize('annuler-operation', $depense);
         $this->resetErrorBag();
         $this->statut = '';
         $this->motifAnnulation = '';
-        $this->aAnnuler = Depense::query()->findOrFail($id)->id;
+        $this->aAnnuler = $depense->id;
     }
 
     /** « Supprimer » : annulation (contre-passation du paiement s'il a eu lieu). */
     public function annulerDepense(): void
     {
-        $this->authorize('annuler-operations');
         $this->resetErrorBag();
 
         try {
+            // Le service vérifie le droit (auteur ou direction) sur la ligne elle-même.
             Depenses::annuler(Depense::query()->findOrFail((string) $this->aAnnuler), $this->utilisateur(), $this->motifAnnulation);
         } catch (OperationRefusee $e) {
             throw ValidationException::withMessages(['motifAnnulation' => $e->getMessage()]);
@@ -145,7 +146,7 @@ class ListeDepenses extends Component
             'depenses' => $depenses,
             'statuts' => StatutDepense::cases(),
             'peutValider' => $toutVoir,
-            'peutAnnuler' => $user->can('annuler-operations'),
+            'estDirection' => $user->can('annuler-operations'),
             'moi' => $user->id,
         ]);
     }

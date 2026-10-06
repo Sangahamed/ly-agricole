@@ -58,6 +58,23 @@ class Stock
             achat: $achat, motif: trim($motif), annule: $entree);
     }
 
+    /** Annulation d'une vente : les kilos sortis reviennent dans le magasin d'où ils étaient partis. */
+    public static function annulerSortieVente(Vente $vente, string $motif, User $auteur): MouvementStock
+    {
+        self::exigerMotif($motif);
+        $lot = self::verrouiller($vente->lot);
+        $sortie = MouvementStock::query()->where('vente_id', $vente->id)->where('type', TypeMouvementStock::SortieVente)->first();
+        if ($sortie === null) {
+            throw new OperationRefusee("La vente {$vente->reference} n'a pas de sortie de stock à annuler.");
+        }
+        if (MouvementStock::query()->where('annule_id', $sortie->id)->exists()) {
+            throw new OperationRefusee('Cette sortie de stock a déjà été annulée.');
+        }
+
+        return self::ecrire($lot, $sortie->magasin, TypeMouvementStock::ContrePassation, -$sortie->grammes, Carbon::today(), $auteur,
+            vente: $vente, motif: trim($motif), annule: $sortie);
+    }
+
     /** Sortie d'une vente, dans le magasin du lot : appelé par App\Services\Ventes. */
     public static function sortieVente(Vente $vente, User $auteur): MouvementStock
     {

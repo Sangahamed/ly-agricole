@@ -5,6 +5,56 @@ Une entrée par session, la plus récente en haut : ce qui a été fait, ce qui 
 
 ---
 
+## 2026-10-06 (soir) — Direction sans validation, modifier / supprimer pour chacun, apport investisseur en Trésorerie — FAIT, TESTÉ, PAS ENCORE VU DANS LE NAVIGATEUR NI DÉPLOYÉ
+
+**Demande.** « La direction doit pouvoir modifier ou supprimer tout ; quand elle crée un prêt ou
+autre, pas besoin de validation, c'est le compte supérieur » ; « permettre à chaque utilisateur
+de modifier ou supprimer ce qu'il fait » ; « dans Trésorerie, Nature : ajouter investisseur » ;
+une explication de chaque onglet (comment créer, dépendances) et de l'onglet Apports, en
+document (doc Claude « Les onglets de la Direction »).
+
+**Fait (DECISIONS D5 et D6 complétés).**
+
+- **Direction = validée dès la saisie** : `Prets::demander` (statut validé, 1 validation requise,
+  `ValidationPret` à son nom), `Depenses::saisir` (payée, `valide_par = cree_par`),
+  `Achats::enregistrer` et `Ventes::enregistrer` (`executer(..., validation: true)`). Fiche du prêt :
+  « accordé directement par la direction, sans 2e accord ». Formulaires : phrase adaptée.
+- **Supprimer par l'auteur ou la direction** : droit `annuler-operation` (sur la ligne, `cree_par`),
+  utilisé par `Achats::annuler`, `Depenses::annuler`, `SuppressionFiches::producteur` (et sa route),
+  et deux nouveaux : `Prets::annuler` (seulement si rien n'a été remis) et `Ventes::annuler`
+  (encaissements contre-passés, kilos rendus via `Stock::annulerSortieVente`, lot « vendu » →
+  « ouvert »). Statuts `StatutPret::Annule`, `StatutVente::Annule` ; migration
+  `annule_par / annule_at / motif_annulation` sur `prets` et `ventes`. Plafond par producteur :
+  un prêt annulé ne compte plus. `Encaissements::encaisser` refuse une vente refusée ou annulée
+  (trou existant avant : une vente refusée pouvait être encaissée).
+- **Modifier = remplacer** : `?corrige=<id>` sur les formulaires prêt, vente, achat, dépense :
+  pré-rempli ; à l'enregistrement, dans une transaction, annulation de l'ancien puis nouvelle
+  saisie (nouvelle référence ; motif de l'ancien « Modifié : remplacé par … »). Liens « Modifier »
+  sur les fiches prêt et vente et dans les listes achats et dépenses.
+- **Trésorerie → Entrée → Nature « Apport d'un investisseur (campagne) »** : choix de
+  l'investisseur (ou LY) ; passe par `Apports::enregistrer` (même registre que /apports, compte
+  dédié à la campagne obligatoire, refus sinon).
+
+**Vérifié en l'exécutant.** Suite : 818 tests (806 + 12 de `DroitsDirectionEtAuteurTest`), 7
+anciens tests adaptés à la nouvelle règle (ils encodaient « direction seule » ou « la direction
+attend un 2e accord »), puis 817/818 : le seul échec, `RendementsTest::la_carte_classe_les_parcelles_par_cinquiemes`,
+passe seul et au premier passage — il indexe par **nom** de producteur Faker (doublon possible) :
+test instable préexistant, à corriger (indexer par id). Larastan : 0 erreur sur les fichiers
+touchés. Pint propre. Migration jouée sur la base MySQL locale.
+
+**Pas vérifié.** Le parcours dans Chrome : l'extension ne transmettait pas la saisie au formulaire
+Livewire (texte tapé non reçu, clic sans requête) — à refaire à la main : direction → nouveau
+prêt → « Validé » ; agent → supprimer / modifier son achat ; Trésorerie → apport investisseur.
+`php artisan serve` relit le `.env` (qui pointe sur Neon) dans son processus enfant : servir en
+local avec `php -S` depuis `public/` et les `DB_*` MySQL dans l'environnement, ou remettre MySQL
+dans `.env`. Pas déployé sur ylagro.com (fusion dans `Ly-agro/ly-agricole` à faire).
+
+**À décider (responsable projet).** Informer les investisseurs que le contrôle à deux personnes
+ne couvre plus les opérations de la direction (contrat art. 9, 17.3) ; faut-il un montant
+au-delà duquel même la direction doit avoir un 2e accord ?
+
+---
+
 ## 2026-10-05 / 06 — Mise en production sur Vercel + Neon (ylagro.com) — EN LIGNE, CONNEXION RÉELLE À ESSAYER
 
 **Demande.** Le site déployé sur Vercel (domaine OVH `ylagro.com`) tombait en

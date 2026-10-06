@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Ventes;
 
+use App\Enums\StatutVente;
 use App\Exceptions\OperationRefusee;
 use App\Models\CompteTresorerie;
 use App\Models\Encaissement;
@@ -39,6 +40,10 @@ class FicheVente extends Component
     public ?int $aContrePasser = null;
 
     public string $motifContrePassation = '';
+
+    public bool $annulationOuverte = false;
+
+    public string $motifAnnulation = '';
 
     public function mount(Vente $vente): void
     {
@@ -105,6 +110,29 @@ class FicheVente extends Component
         session()->flash('statut', 'Encaissement contre-passé.');
     }
 
+    public function ouvrirAnnulation(): void
+    {
+        $this->authorize('annuler-operation', $this->vente());
+        $this->resetErrorBag();
+        $this->annulationOuverte = true;
+        $this->motifAnnulation = '';
+    }
+
+    /** « Supprimer » : encaissements contre-passés, kilos rendus au lot (le service revérifie tout). */
+    public function annulerVente(): void
+    {
+        $this->resetErrorBag();
+
+        try {
+            Ventes::annuler($this->vente(), $this->moi(), $this->motifAnnulation);
+        } catch (OperationRefusee $e) {
+            throw ValidationException::withMessages(['motifAnnulation' => $e->getMessage()]);
+        }
+
+        $this->annulationOuverte = false;
+        session()->flash('statut', 'Vente supprimée (annulée) : stock et comptes remis comme avant, la trace reste.');
+    }
+
     private function vente(): Vente
     {
         return Vente::query()->findOrFail($this->venteId);
@@ -120,13 +148,15 @@ class FicheVente extends Component
 
     public function render(): View
     {
-        $vente = $this->vente()->load('lot.magasin', 'campagne.produit', 'auteur', 'validateur',
+        $vente = $this->vente()->load('lot.magasin', 'campagne.produit', 'auteur', 'validateur', 'annuleur',
             'encaissements.compte', 'encaissements.auteur', 'encaissements.contrePassation');
 
         return view('livewire.ventes.fiche-vente', [
             'vente' => $vente,
             'marge' => Ventes::margeLot($vente->lot),
             'comptes' => CompteTresorerie::query()->where('actif', true)->orderBy('nom')->get(),
+            'peutAnnuler' => in_array($vente->statut, [StatutVente::AValider, StatutVente::Valide], true)
+                && $this->moi()->can('annuler-operation', $vente),
         ]);
     }
 }

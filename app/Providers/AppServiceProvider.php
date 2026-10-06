@@ -47,6 +47,7 @@ use App\Support\ConnecteurPostgresNeon;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -141,6 +142,10 @@ class AppServiceProvider extends ServiceProvider
         // « Supprimer » une opération = l'annuler par contre-passation (rien ne s'efface) ;
         // une fiche qui n'a encore servi à rien est vraiment supprimée. Direction seule.
         Gate::define('annuler-operations', fn (User $user) => $user->aLeRole(Role::Direction));
+        // Chacun annule (et corrige) CE QU'IL A SAISI ; la direction, tout (demande du 2026-10-06).
+        // Même règle qu'au-dessus : annuler = contre-passer, rien ne s'efface.
+        Gate::define('annuler-operation', fn (User $user, Model $operation) => $user->aLeRole(Role::Direction)
+            || (int) $operation->getAttribute('cree_par') === $user->id);
         Gate::define('ouvrir-comptes', fn (User $user) => $user->can('gerer-utilisateurs') || $user->can('gerer-agents'));
         Gate::define('voir-journal', fn (User $user) => $user->aLeRole(Role::Admin, Role::Direction));
         // Rapports de la direction (restant dû, stock, caisses, écarts, alertes) et exports.

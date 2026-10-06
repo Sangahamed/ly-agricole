@@ -71,16 +71,17 @@ class SuppressionParLaDirectionTest extends TestCase
     }
 
     #[Test]
-    public function supprimer_une_depense_a_valider_et_seulement_par_la_direction(): void
+    public function supprimer_une_depense_a_valider_par_son_auteur_ou_la_direction_seulement(): void
     {
         $depense = $this->depense(150_000);
         $this->assertSame(StatutDepense::AValider, $depense->statut);
 
+        // Un autre comptable n'en est pas l'auteur : refusé (l'auteur, lui, peut — 2026-10-06).
         try {
-            Depenses::annuler($depense, $this->comptable, 'Je retire ma saisie');
-            $this->fail('Le comptable a pu supprimer');
+            Depenses::annuler($depense, User::factory()->role(Role::Comptable)->create(), 'Je retire sa saisie');
+            $this->fail('Un autre comptable a pu supprimer');
         } catch (OperationRefusee $e) {
-            $this->assertStringContainsString('Seule la direction', $e->getMessage());
+            $this->assertStringContainsString('auteur de la dépense et la direction', $e->getMessage());
         }
 
         Livewire::actingAs($this->direction)->test(ListeDepenses::class)

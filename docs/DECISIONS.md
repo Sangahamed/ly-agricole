@@ -75,6 +75,16 @@ sans effet. Seule une **fiche qui n'a encore servi à rien** (producteur sans pr
 visite…) est vraiment effacée, trace gardée au journal. Choix fait par le responsable projet
 parmi trois options ; « tout effacer vraiment » a été écarté.
 
+**Complément (2026-10-06, demande : « permettre à chaque utilisateur de modifier ou supprimer
+ce qu'il fait »).** « Supprimer » est ouvert à l'**auteur** de l'opération en plus de la
+direction (droit `annuler-operation`, sur la ligne), pour les prêts, ventes, achats, dépenses
+et fiches producteur ; même mécanique d'annulation. « Modifier » = formulaire pré-rempli
+(`?corrige=<id>`) qui, à l'enregistrement et dans la même transaction, annule l'ancienne
+saisie puis enregistre la nouvelle (nouvelle référence, l'ancienne garde « Modifié : remplacé
+par … »). Un prêt ne s'annule que tant que rien n'a été remis. Mouvements de trésorerie,
+apports, stock, intrants : contre-passation inchangée (direction et comptable). Effacer
+vraiment reste écarté : solution la plus prudente, à confirmer par le responsable projet.
+
 ## D6 — Séparation des tâches appliquée par le code (2026-09-25)
 
 **Choix.** Les validations (prêt, dépense au-dessus du seuil, clôture de campagne)
@@ -82,6 +92,15 @@ sont refusées si `valide_par == cree_par`. Testé.
 
 **Pourquoi.** Exigence du cahier des charges (§2) et réponse directe aux faiblesses
 relevées dans le contrat (art. 9, 17.3).
+
+**Exception (2026-10-06, demande : « la direction n'a pas besoin de validation, c'est le
+compte supérieur »).** Ce que saisit un compte **direction** — prêt, dépense, achat, vente —
+est validé dès la saisie, à son nom : prêt « validé » avec une `ValidationPret` de l'auteur
+(fiche : « accordé directement par la direction, sans 2e accord ») ; dépense, achat, vente
+avec `valide_par = cree_par`. C'est la trace du contournement, lisible et requêtable. Les
+autres rôles restent soumis à D6 (testé). Reste vrai : accord écrit d'une partie liée
+(art. 17.3), plafonds, caisse jamais négative. **Conséquence à signaler aux investisseurs** :
+le contrôle à deux personnes (art. 9, 17.3) ne couvre plus les opérations de la direction.
 
 ## D7 — Pas de multi-entreprise en phase 1 (2026-09-25)
 

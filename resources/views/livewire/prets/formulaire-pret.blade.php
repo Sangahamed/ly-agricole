@@ -2,7 +2,10 @@
 <div>
     <div class="mb-6">
         <a href="{{ route('prets') }}" class="text-sm text-emerald-800 hover:underline">← Prêts</a>
-        <h1 class="mt-2 text-xl font-semibold">Nouvelle demande de prêt</h1>
+        <h1 class="mt-2 text-xl font-semibold">{{ $pretCorrige ? 'Modifier le prêt '.$pretCorrige->reference : 'Nouvelle demande de prêt' }}</h1>
+        @if ($pretCorrige)
+            <p class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">À l'enregistrement, le prêt {{ $pretCorrige->reference }} passe « annulé » et celui-ci le remplace (nouvelle référence). L'ancien reste visible.</p>
+        @endif
         <p class="mt-1 text-sm text-stone-600">{{ $regleValidation }}</p>
     </div>
 

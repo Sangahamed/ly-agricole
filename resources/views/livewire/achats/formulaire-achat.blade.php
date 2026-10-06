@@ -2,7 +2,10 @@
 <div>
     <div class="mb-6">
         <a href="{{ route('achats') }}" class="text-sm text-emerald-800 hover:underline">← Achats</a>
-        <h1 class="mt-2 text-xl font-semibold">Nouvel achat bord-champ</h1>
+        <h1 class="mt-2 text-xl font-semibold">{{ $achatCorrige ? 'Modifier l\'achat '.$achatCorrige->reference : 'Nouvel achat bord-champ' }}</h1>
+    @if ($achatCorrige)
+        <p class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">À l'enregistrement, l'achat {{ $achatCorrige->reference }} passe « annulé » (stock, caisse et prêt remis comme avant) et celui-ci le remplace. L'ancien reste visible.</p>
+    @endif
         @if ($campagne)
             <p class="mt-1 text-sm text-stone-600">
                 Campagne {{ $campagne->produit->nom }} {{ $campagne->code }} —

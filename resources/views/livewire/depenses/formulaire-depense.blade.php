@@ -2,7 +2,10 @@
 <div>
     <div class="mb-6">
         <a href="{{ route('depenses') }}" class="text-sm text-emerald-800 hover:underline">← Dépenses</a>
-        <h1 class="mt-2 text-xl font-semibold">Nouvelle dépense</h1>
+        <h1 class="mt-2 text-xl font-semibold">{{ $depenseCorrigee ? 'Modifier la dépense' : 'Nouvelle dépense' }}</h1>
+        @if ($depenseCorrigee)
+            <p class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">À l'enregistrement, l'ancienne dépense passe « annulée » (son paiement est contre-passé) et celle-ci la remplace. Le justificatif reste celui d'avant si vous n'en joignez pas un nouveau.</p>
+        @endif
         <p class="mt-1 text-sm text-stone-600">{{ $regleSeuil }}</p>
     </div>
 

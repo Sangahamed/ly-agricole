@@ -28,7 +28,7 @@ class ProducteurController extends Controller
     /** « Supprimer » : seulement une fiche qui n'a encore servi à rien (le service vérifie). */
     public function supprimer(Producteur $producteur): RedirectResponse
     {
-        Gate::authorize('annuler-operations');
+        Gate::authorize('annuler-operation', $producteur);
 
         try {
             SuppressionFiches::producteur($producteur, auth()->user());

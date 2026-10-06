@@ -103,7 +103,8 @@
                                     <button type="button" wire:click="preparerRefus('{{ $d->id }}')" class="ml-1 rounded-md px-2 py-1 text-xs text-red-800 hover:bg-red-50">Refuser</button>
                                 @endif
                             @endif
-                            @if ($peutAnnuler && in_array($d->statut->value, ['a_valider', 'payee'], true))
+                            @if (($estDirection || $d->cree_par === $moi) && in_array($d->statut->value, ['a_valider', 'payee'], true))
+                                <a href="{{ route('depenses.nouvelle', ['corrige' => $d->id]) }}" class="ml-1 rounded-md px-2 py-1 text-xs text-stone-700 hover:bg-stone-100">Modifier</a>
                                 <button type="button" wire:click="preparerAnnulation('{{ $d->id }}')" class="ml-1 rounded-md px-2 py-1 text-xs text-red-800 hover:bg-red-50">Supprimer</button>
                             @endif
                         </td>

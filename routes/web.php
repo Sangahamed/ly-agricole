@@ -109,7 +109,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/nouveau', FormulaireProducteur::class)->middleware('can:gerer-producteurs')->name('.nouveau');
         Route::get('/groupes', Groupes::class)->middleware('can:gerer-producteurs')->name('.groupes');
         Route::get('/{producteur}', [ProducteurController::class, 'fiche'])->middleware('can:voir-producteurs')->name('.fiche');
-        Route::delete('/{producteur}', [ProducteurController::class, 'supprimer'])->middleware('can:annuler-operations')->name('.supprimer');
+        Route::delete('/{producteur}', [ProducteurController::class, 'supprimer'])->middleware('can:annuler-operation,producteur')->name('.supprimer');
         Route::get('/{producteur}/modifier', FormulaireProducteur::class)->middleware('can:gerer-producteurs')->name('.modifier');
         Route::get('/{producteur}/photo', [ProducteurController::class, 'photo'])->middleware('can:voir-producteurs')->name('.photo');
         Route::get('/{producteur}/carte', [ProducteurController::class, 'carte'])->middleware('can:gerer-producteurs')->name('.carte');

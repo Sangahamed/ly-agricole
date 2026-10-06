@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\CleParametre;
 use App\Enums\FormePret;
 use App\Enums\ModeDecaissement;
+use App\Enums\Role;
 use App\Enums\StatutCampagne;
 use App\Enums\StatutPret;
 use App\Exceptions\OperationRefusee;
@@ -25,7 +26,8 @@ use Illuminate\Support\Facades\DB;
  * Règles des prêts de campagne (cahier §3, contrat art. 9.2 et 17.3, D6).
  *
  * - Toute demande est validée par une autre personne que son auteur ; au-dessus du
- *   seuil — ou si le seuil n'est pas défini — par DEUX personnes distinctes.
+ *   seuil — ou si le seuil n'est pas défini — par DEUX personnes distinctes. Sauf un prêt
+ *   saisi par la direction : accordé dès la saisie (2026-10-06).
  * - Plafonds par producteur et par hectare, s'ils sont définis.
  * - Proche de la direction (art. 17.3) : accord écrit joint, sinon refus.
  * - Décaissement par tranches, jamais au-delà du montant ; chaque tranche est un
@@ -75,6 +77,9 @@ class Prets
             self::verifierCautionSolidaire($producteur);
 
             $seuil = Parametre::entier(CleParametre::SeuilValidationPret);
+            // La direction est le compte supérieur : son prêt est accordé dès la saisie, sans
+            // 2e accord (demande du 2026-10-06). Trace : une validation à son nom, = auteur.
+            $direct = $auteur->aLeRole(Role::Direction);
 
             $pret = Pret::query()->create([
                 'producteur_id' => $producteur->id,
@@ -84,13 +89,18 @@ class Prets
                 'prix_reference_kg_fcfa' => $prix,
                 'grammes_attendus' => $prix === null ? null : self::grammesAttendus($montant, $prix),
                 'echeance' => $donnees['echeance']->toDateString(),
-                'statut' => StatutPret::Demande,
-                'validations_requises' => $seuil === null || $montant > $seuil ? 2 : 1,
+                'statut' => $direct ? StatutPret::Valide : StatutPret::Demande,
+                'validations_requises' => $direct ? 1 : ($seuil === null || $montant > $seuil ? 2 : 1),
                 'partie_liee' => $partieLiee,
                 'accord_ecrit' => $partieLiee ? $accordEcrit : null,
                 'cree_par' => $auteur->id,
+                'valide_at' => $direct ? now() : null,
             ]);
             $pret->parcelles()->attach($parcelles->modelKeys());
+
+            if ($direct) {
+                ValidationPret::query()->create(['pret_id' => $pret->id, 'user_id' => $auteur->id]);
+            }
 
             return $pret;
         });
@@ -138,6 +148,38 @@ class Prets
             $pret->update(['statut' => StatutPret::Refuse, 'motif_refus' => $motif]);
 
             return $pret;
+        });
+    }
+
+    /**
+     * « Supprimer » un prêt, par son auteur ou la direction : rien ne s'efface, il passe
+     * « annulé » avec qui, quand et pourquoi. Seulement tant que rien n'a été remis au
+     * producteur : un versement se contre-passe d'abord (fiche du prêt ou trésorerie), sinon
+     * l'argent sorti n'aurait plus de prêt en face.
+     */
+    public static function annuler(Pret $pret, User $auteur, string $motif): Pret
+    {
+        if (! $auteur->can('annuler-operation', $pret)) {
+            throw new OperationRefusee('Seuls l\'auteur du prêt et la direction peuvent le supprimer (annuler).');
+        }
+        $motif = trim($motif);
+        if (mb_strlen($motif) < 5) {
+            throw new OperationRefusee('Le motif de l\'annulation est obligatoire (5 caractères au moins).');
+        }
+
+        return DB::transaction(function () use ($pret, $auteur, $motif) {
+            $pret = Pret::query()->lockForUpdate()->findOrFail($pret->id);
+
+            if (! in_array($pret->statut, [StatutPret::Demande, StatutPret::Valide], true)) {
+                throw new OperationRefusee("Le prêt {$pret->reference} est ".mb_strtolower($pret->statut->libelle()).' : il ne s\'annule plus.');
+            }
+            if ($pret->montantRemis() > 0) {
+                throw new OperationRefusee('De l\'argent ou des intrants ont déjà été remis sur ce prêt : contre-passer d\'abord chaque versement, puis annuler le prêt.');
+            }
+
+            $pret->update(['statut' => StatutPret::Annule, 'annule_par' => $auteur->id, 'annule_at' => now(), 'motif_annulation' => $motif]);
+
+            return $pret->refresh();
         });
     }
 
@@ -232,7 +274,7 @@ class Prets
             $dejaPrete = (int) Pret::query()
                 ->where('producteur_id', $producteur->id)
                 ->where('campagne_id', $campagne->id)
-                ->where('statut', '!=', StatutPret::Refuse)
+                ->whereNotIn('statut', [StatutPret::Refuse, StatutPret::Annule])
                 ->sum('montant_fcfa');
 
             if ($dejaPrete + $montant > $plafondProducteur) {

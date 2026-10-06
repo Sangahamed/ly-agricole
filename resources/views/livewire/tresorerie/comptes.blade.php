@@ -76,14 +76,28 @@
                     @if ($formulaire === 'entree')
                         <div>
                             <label for="nature" class="mb-1 block text-sm font-medium text-stone-700">Nature</label>
-                            <select wire:model="nature" id="nature" class="{{ $champ }}">
+                            <select wire:model.live="nature" id="nature" class="{{ $champ }}">
                                 <option value="">— Choisir —</option>
-                                @foreach ($natures as $n)
-                                    <option value="{{ $n->value }}">{{ $n->libelle() }}</option>
+                                @foreach ($natures as $valeur => $libelleNature)
+                                    <option value="{{ $valeur }}">{{ $libelleNature }}</option>
                                 @endforeach
                             </select>
                             @error('nature') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
                         </div>
+                        @if ($nature === 'apport_campagne')
+                            <div>
+                                <label for="investisseurId" class="mb-1 block text-sm font-medium text-stone-700">Investisseur</label>
+                                <select wire:model="investisseurId" id="investisseurId" class="{{ $champ }}">
+                                    <option value="">— Choisir —</option>
+                                    @foreach ($investisseurs as $i)
+                                        <option value="{{ $i->id }}">{{ $i->nom }}</option>
+                                    @endforeach
+                                    <option value="ly">LY AGRICOLE (apport propre)</option>
+                                </select>
+                                @error('investisseurId') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                                <p class="mt-1 text-xs text-stone-500">Choisir comme compte celui de la campagne. L'apport apparaît aussi dans l'onglet Apports et compte dans la part de l'investisseur.</p>
+                            </div>
+                        @endif
                     @else
                         <div>
                             <label for="compteDestinationId" class="mb-1 block text-sm font-medium text-stone-700">{{ $formulaire === 'avance' ? 'Vers la caisse de l\'agent' : 'Vers le compte' }}</label>

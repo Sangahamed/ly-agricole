@@ -180,7 +180,7 @@ class EcransPretsTest extends TestCase
     }
 
     #[Test]
-    public function l_auteur_n_a_pas_de_bouton_et_son_appel_force_est_refuse(): void
+    public function le_pret_de_la_direction_est_accorde_sans_bouton_valider_et_l_appel_force_est_refuse(): void
     {
         $pret = Prets::demander([
             'producteur_id' => Producteur::factory()->create()->id,
@@ -192,12 +192,13 @@ class EcransPretsTest extends TestCase
 
         $this->actingAs($this->direction);
         Livewire::test(FichePret::class, ['pret' => $pret])
+            ->assertSee('accordé directement par la direction, sans 2e accord')
             ->assertDontSeeHtml('wire:click="valider"')
             ->call('valider')
             ->assertHasErrors('action')
             ->assertSee('votre propre demande');
 
-        $this->assertSame(0, $pret->validations()->count());
+        $this->assertSame(1, $pret->validations()->count());
     }
 
     #[Test]

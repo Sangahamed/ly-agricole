@@ -122,7 +122,8 @@ class VentesTest extends TestCase
     {
         $this->remplirLeLot();
 
-        $vente = $this->vendre();
+        // Le comptable (la direction, compte supérieur, serait validée tout de suite).
+        $vente = $this->vendre(auteur: $this->comptable);
 
         $this->assertSame(StatutVente::AValider, $vente->statut);
         // Le stock ne bouge pas tant que la vente n'est pas validée.

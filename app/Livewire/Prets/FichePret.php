@@ -43,6 +43,10 @@ class FichePret extends Component
 
     public string $motifRefus = '';
 
+    public bool $annulationOuverte = false;
+
+    public string $motifAnnulation = '';
+
     public bool $decaissementOuvert = false;
 
     public string $compteId = '';
@@ -139,6 +143,29 @@ class FichePret extends Component
 
         $this->refusOuvert = false;
         $this->statut = 'Demande refusée.';
+    }
+
+    public function ouvrirAnnulation(): void
+    {
+        $this->authorize('annuler-operation', $this->pret());
+        $this->resetErrorBag();
+        $this->annulationOuverte = true;
+        $this->motifAnnulation = '';
+    }
+
+    /** « Supprimer » : le prêt passe « annulé » (le service revérifie droit, motif et remises). */
+    public function annulerPret(): void
+    {
+        $this->resetErrorBag();
+
+        try {
+            Prets::annuler($this->pret(), $this->moi(), $this->motifAnnulation);
+        } catch (OperationRefusee $e) {
+            throw ValidationException::withMessages(['motifAnnulation' => $e->getMessage()]);
+        }
+
+        $this->annulationOuverte = false;
+        $this->statut = 'Prêt supprimé (annulé) : il ne compte plus nulle part, la trace reste.';
     }
 
     public function ouvrirDecaissement(): void
@@ -333,6 +360,9 @@ class FichePret extends Component
             'peutEncaisser' => in_array($pret->statut, [StatutPret::Valide, StatutPret::Decaisse], true)
                 && $pret->restantDu() > 0 && $moi->can('encaisser-remboursements'),
             'peutVerserArgent' => $pret->statut === StatutPret::Valide && $pret->forme !== FormePret::Intrants && $moi->can('decaisser-prets'),
+            // Supprimer / corriger : l'auteur ou la direction, tant que rien n'a été remis.
+            'peutAnnuler' => in_array($pret->statut, [StatutPret::Demande, StatutPret::Valide], true)
+                && $pret->montantRemis() === 0 && $moi->can('annuler-operation', $pret),
             'peutValider' => $pret->statut === StatutPret::Demande && $moi->can('valider-prets')
                 && $pret->cree_par !== $moi->id && ! $pret->validations->contains('user_id', $moi->id),
         ])->title('Prêt '.$pret->reference);

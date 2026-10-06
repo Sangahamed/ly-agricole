@@ -18,8 +18,8 @@ class SuppressionFiches
 {
     public static function producteur(Producteur $producteur, User $auteur): void
     {
-        if (! $auteur->can('annuler-operations')) {
-            throw new OperationRefusee('Seule la direction peut supprimer une fiche producteur.');
+        if (! $auteur->can('annuler-operation', $producteur)) {
+            throw new OperationRefusee('Seuls l\'auteur de la fiche et la direction peuvent la supprimer.');
         }
 
         DB::transaction(function () use ($producteur) {

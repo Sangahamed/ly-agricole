@@ -142,17 +142,16 @@ class AnnulationAchatTest extends TestCase
     }
 
     #[Test]
-    public function seule_la_direction_annule_avec_un_motif_et_une_seule_fois(): void
+    public function seuls_l_auteur_et_la_direction_annulent_avec_un_motif_et_une_seule_fois(): void
     {
         $achat = $this->acheter();
 
-        foreach ([$this->agent, $this->comptable] as $autre) {
-            try {
-                Achats::annuler($achat, $autre, 'Je voudrais annuler');
-                $this->fail('Annulation acceptée pour '.$autre->role->value);
-            } catch (OperationRefusee $e) {
-                $this->assertStringContainsString('Seule la direction', $e->getMessage());
-            }
+        // Le comptable n'est pas l'auteur (l'agent l'est : il peut annuler, voir DroitsDirectionEtAuteurTest).
+        try {
+            Achats::annuler($achat, $this->comptable, 'Je voudrais annuler');
+            $this->fail('Annulation acceptée pour le comptable');
+        } catch (OperationRefusee $e) {
+            $this->assertStringContainsString('auteur de l\'achat et la direction', $e->getMessage());
         }
 
         try {

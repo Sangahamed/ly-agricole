@@ -9,6 +9,7 @@ use App\Exceptions\OperationRefusee;
 use App\Models\Campagne;
 use App\Models\CompteTresorerie;
 use App\Models\User;
+use App\Services\Apports;
 use App\Services\Tresorerie;
 use App\Support\Montant;
 use Illuminate\Contracts\View\View;
@@ -46,6 +47,9 @@ class Comptes extends Component
 
     public string $nature = '';
 
+    /** Nature « apport d'un investisseur » : qui apporte ('ly' = LY AGRICOLE elle-même). */
+    public string $investisseurId = '';
+
     public string $montant = '';
 
     public string $dateOperation = '';
@@ -65,7 +69,7 @@ class Comptes extends Component
         abort_unless(in_array($formulaire, ['compte', 'entree', 'virement', 'avance'], true), 404);
 
         $this->resetErrorBag();
-        $this->reset('nom', 'type', 'titulaireId', 'campagneId', 'compteId', 'compteDestinationId', 'nature', 'montant', 'libelle', 'reference', 'statut');
+        $this->reset('nom', 'type', 'titulaireId', 'campagneId', 'compteId', 'compteDestinationId', 'nature', 'investisseurId', 'montant', 'libelle', 'reference', 'statut');
         $this->dateOperation = Carbon::today()->toDateString();
         $this->formulaire = $formulaire;
     }
@@ -118,7 +122,10 @@ class Comptes extends Component
             'reference' => ['nullable', 'string', 'max:100'],
         ];
         if ($this->formulaire === 'entree') {
-            $regles['nature'] = ['required', Rule::in(array_map(fn ($n) => $n->value, NatureMouvement::entreesManuelles()))];
+            $regles['nature'] = ['required', Rule::in(array_keys(self::naturesEntree()))];
+            if ($this->nature === NatureMouvement::ApportCampagne->value) {
+                $regles['investisseurId'] = ['required', Rule::in(['ly', ...User::query()->where('role', Role::Investisseur->value)->pluck('id')->map(fn ($id) => (string) $id)->all()])];
+            }
         } else {
             $regles['compteDestinationId'] = ['required', 'integer', 'different:compteId', Rule::exists('comptes_tresorerie', 'id')];
         }
@@ -132,6 +139,7 @@ class Comptes extends Component
             'dateOperation' => 'date',
             'libelle' => 'libellé',
             'reference' => 'référence',
+            'investisseurId' => 'investisseur',
         ]);
 
         $compte = CompteTresorerie::query()->findOrFail((int) $this->compteId);
@@ -141,10 +149,17 @@ class Comptes extends Component
         $auteur = auth()->user();
 
         try {
-            match ($this->formulaire) {
-                'entree' => Tresorerie::entree($compte, $montant, NatureMouvement::from($this->nature), $date, $this->libelle, $auteur, $this->reference ?: null),
-                'virement' => Tresorerie::virement($compte, CompteTresorerie::query()->findOrFail((int) $this->compteDestinationId), $montant, $date, $this->libelle, $auteur, reference: $this->reference ?: null),
-                'avance' => Tresorerie::avanceAgent($compte, CompteTresorerie::query()->findOrFail((int) $this->compteDestinationId), $montant, $date, $this->libelle, $auteur),
+            match (true) {
+                // Apport d'un investisseur : passe par le registre des apports (contrat art. 5 et 9), donc
+                // compte dédié à une campagne, et il compte dans la quote-part de l'investisseur (/apports).
+                $this->formulaire === 'entree' && $this->nature === NatureMouvement::ApportCampagne->value => Apports::enregistrer(
+                    $this->investisseurId === 'ly' ? null : (int) $this->investisseurId,
+                    $compte->campagne_id ?? throw new OperationRefusee("Un apport d'investisseur va sur le compte dédié à une campagne : « {$compte->nom} » n'est rattaché à aucune campagne."),
+                    $compte->id, $montant, $date, $auteur, trim($this->libelle.($this->reference !== '' ? ' — réf. '.$this->reference : '')),
+                ),
+                $this->formulaire === 'entree' => Tresorerie::entree($compte, $montant, NatureMouvement::from($this->nature), $date, $this->libelle, $auteur, $this->reference ?: null),
+                $this->formulaire === 'virement' => Tresorerie::virement($compte, CompteTresorerie::query()->findOrFail((int) $this->compteDestinationId), $montant, $date, $this->libelle, $auteur, reference: $this->reference ?: null),
+                $this->formulaire === 'avance' => Tresorerie::avanceAgent($compte, CompteTresorerie::query()->findOrFail((int) $this->compteDestinationId), $montant, $date, $this->libelle, $auteur),
                 default => abort(404),
             };
         } catch (OperationRefusee $e) {
@@ -153,6 +168,23 @@ class Comptes extends Component
 
         $this->statut = 'Opération enregistrée.';
         $this->formulaire = null;
+    }
+
+    /**
+     * Natures proposées pour une entrée d'argent : les entrées simples, plus l'apport d'un
+     * investisseur (demande du 2026-10-06), enregistré comme sur l'écran Apports.
+     *
+     * @return array<string, string> valeur => libellé
+     */
+    private static function naturesEntree(): array
+    {
+        $natures = [];
+        foreach (NatureMouvement::entreesManuelles() as $n) {
+            $natures[$n->value] = $n->libelle();
+        }
+        $natures[NatureMouvement::ApportCampagne->value] = 'Apport d\'un investisseur (campagne)';
+
+        return $natures;
     }
 
     public function render(): View
@@ -164,7 +196,8 @@ class Comptes extends Component
             'comptes' => $comptes,
             'soldes' => $soldes,
             'types' => TypeCompte::cases(),
-            'natures' => NatureMouvement::entreesManuelles(),
+            'natures' => self::naturesEntree(),
+            'investisseurs' => User::query()->where('role', Role::Investisseur->value)->where('actif', true)->orderBy('nom')->get(),
             'agents' => User::query()->where('role', Role::Agent->value)->where('actif', true)->orderBy('nom')->get(),
             'campagnes' => Campagne::query()->with('produit')->orderByDesc('debut')->get(),
         ]);

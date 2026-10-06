@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CleParametre;
+use App\Enums\Role;
 use App\Enums\SourcePoids;
 use App\Enums\StatutAchat;
 use App\Enums\StatutCampagne;
@@ -154,7 +155,10 @@ class Achats
                 'cree_par' => $auteur->id,
             ]);
 
-            if ($seuil !== null && $montant <= $seuil) {
+            if ($auteur->aLeRole(Role::Direction)) {
+                // Compte supérieur : validé dès la saisie, à son nom (2026-10-06).
+                self::executer($achat, $auteur, validation: true);
+            } elseif ($seuil !== null && $montant <= $seuil) {
                 self::executer($achat, $auteur);
             }
 
@@ -187,15 +191,15 @@ class Achats
     }
 
     /**
-     * « Supprimer » un achat, réservé à la direction (décision du 2026-10-01) : rien ne s'efface.
+     * « Supprimer » un achat, par son auteur ou la direction (2026-10-01, puis 2026-10-06) : rien ne s'efface.
      * À valider : il passe « annulé », aucun effet n'avait eu lieu. Validé : ses effets sont
      * contre-passés ensemble — les kilos ressortent du lot (refusé s'ils n'y sont plus), le
      * remboursement en kilos est repris, l'argent payé revient dans la caisse. Motif obligatoire.
      */
     public static function annuler(Achat $achat, User $auteur, string $motif): Achat
     {
-        if (! $auteur->can('annuler-operations')) {
-            throw new OperationRefusee('Seule la direction peut supprimer (annuler) un achat.');
+        if (! $auteur->can('annuler-operation', $achat)) {
+            throw new OperationRefusee('Seuls l\'auteur de l\'achat et la direction peuvent le supprimer (annuler).');
         }
         $motif = trim($motif);
         if (mb_strlen($motif) < 5) {

@@ -34,16 +34,20 @@ use Illuminate\Support\Carbon;
  * @property int|null $valide_par
  * @property Carbon|null $valide_at
  * @property string|null $motif_refus
+ * @property int|null $annule_par
+ * @property Carbon|null $annule_at
+ * @property string|null $motif_annulation
  * @property-read Campagne $campagne
  * @property-read Lot $lot
  * @property-read User $auteur
+ * @property-read User|null $annuleur
  * @property-read User|null $validateur
  * @property-read HasMany<Encaissement, $this> $encaissements
  */
 #[Fillable([
     'id', 'campagne_id', 'lot_id', 'type_acheteur', 'acheteur_nom', 'date_vente', 'poids_net_g',
     'prix_kg_fcfa', 'montant_fcfa', 'qualite_acceptee', 'facture', 'statut', 'cree_par',
-    'valide_par', 'valide_at', 'motif_refus',
+    'valide_par', 'valide_at', 'motif_refus', 'annule_par', 'annule_at', 'motif_annulation',
 ])]
 class Vente extends Model
 {
@@ -94,6 +98,12 @@ class Vente extends Model
     }
 
     /** @return BelongsTo<User, $this> */
+    public function annuleur(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'annule_par');
+    }
+
+    /** @return BelongsTo<User, $this> */
     public function validateur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'valide_par');
@@ -106,6 +116,7 @@ class Vente extends Model
             'statut' => StatutVente::class,
             'date_vente' => 'datetime',
             'valide_at' => 'datetime',
+            'annule_at' => 'datetime',
             'poids_net_g' => 'integer',
             'prix_kg_fcfa' => 'integer',
             'montant_fcfa' => 'integer',

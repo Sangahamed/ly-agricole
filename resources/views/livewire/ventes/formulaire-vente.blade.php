@@ -1,5 +1,8 @@
 <div class="mx-auto max-w-2xl">
-    <h1 class="mb-6 text-xl font-semibold">Nouvelle vente</h1>
+    <h1 class="mb-6 text-xl font-semibold">{{ $venteCorrigee ? 'Modifier la vente '.$venteCorrigee->reference : 'Nouvelle vente' }}</h1>
+    @if ($venteCorrigee)
+        <p class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">À l'enregistrement, la vente {{ $venteCorrigee->reference }} passe « annulée » (ses kilos reviennent dans le lot, ses encaissements sont contre-passés) et celle-ci la remplace. L'ancienne reste visible.</p>
+    @endif
 
     @error('vente')
         <p class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{{ $message }}</p>

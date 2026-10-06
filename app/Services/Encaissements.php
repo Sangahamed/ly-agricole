@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\StatutVente;
 use App\Exceptions\OperationRefusee;
 use App\Models\CompteTresorerie;
 use App\Models\Encaissement;
@@ -29,6 +30,9 @@ class Encaissements
 
         return DB::transaction(function () use ($vente, $compte, $montant, $date, $auteur, $reference) {
             $vente = Vente::query()->lockForUpdate()->findOrFail($vente->id);
+            if (in_array($vente->statut, [StatutVente::Refuse, StatutVente::Annule], true)) {
+                throw new OperationRefusee("La vente {$vente->reference} est ".mb_strtolower($vente->statut->libelle()).' : rien à encaisser.');
+            }
             $reste = $vente->resteAEncaisser();
             if ($montant <= 0 || $montant > $reste) {
                 throw new OperationRefusee('Le montant encaissé doit être compris entre 1 et '.Format::fcfa($reste).' (reste à encaisser).');

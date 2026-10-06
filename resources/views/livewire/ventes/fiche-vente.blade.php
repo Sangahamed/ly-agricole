@@ -7,14 +7,36 @@
             <h1 class="mt-1 text-xl font-semibold">Vente {{ $vente->reference }}</h1>
             <p class="text-sm text-stone-600">{{ $vente->acheteur_nom }} · {{ $vente->type_acheteur->libelle() }} · {{ $vente->date_vente->format('d/m/Y H:i') }}</p>
         </div>
-        <span class="rounded-full px-3 py-1 text-xs font-medium
-            @class(['bg-emerald-100 text-emerald-900' => $vente->statut->value === 'valide', 'bg-amber-100 text-amber-900' => $vente->statut->value === 'a_valider', 'bg-red-100 text-red-900' => $vente->statut->value === 'refuse'])">
-            {{ $vente->statut->libelle() }}
-        </span>
+        <div class="flex flex-wrap items-center gap-2">
+            @if ($peutAnnuler)
+                <a href="{{ route('ventes.nouvelle', ['corrige' => $vente->id]) }}" class="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-800 hover:bg-stone-50">Modifier</a>
+                <button type="button" wire:click="ouvrirAnnulation" class="rounded-md px-3 py-1.5 text-sm text-red-800 hover:bg-red-50">Supprimer</button>
+            @endif
+            <span class="rounded-full px-3 py-1 text-xs font-medium
+                @class(['bg-emerald-100 text-emerald-900' => $vente->statut->value === 'valide', 'bg-amber-100 text-amber-900' => $vente->statut->value === 'a_valider', 'bg-red-100 text-red-900' => in_array($vente->statut->value, ['refuse', 'annule'], true)])">
+                {{ $vente->statut->libelle() }}
+            </span>
+        </div>
     </div>
+
+    @if ($annulationOuverte)
+        <form wire:submit="annulerVente" class="rounded-md border border-red-200 bg-red-50 p-4">
+            <p class="text-sm text-red-950">La vente passe « annulée » : les encaissements sont contre-passés et les kilos reviennent dans le lot. Elle reste visible avec qui l'a annulée et pourquoi.</p>
+            <label for="motifAnnulation" class="mt-3 block text-sm font-medium text-red-950">Motif de l'annulation</label>
+            <input wire:model="motifAnnulation" id="motifAnnulation" type="text" class="mt-1 block w-full rounded-md border border-red-300 px-3 py-2 focus:outline-none">
+            @error('motifAnnulation') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+            <div class="mt-3 flex gap-2">
+                <button type="submit" class="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800">Supprimer la vente</button>
+                <button type="button" wire:click="$set('annulationOuverte', false)" class="rounded-md px-4 py-2 text-sm text-stone-700 hover:bg-stone-100">Garder</button>
+            </div>
+        </form>
+    @endif
 
     @if (session('statut'))
         <p class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">{{ session('statut') }}</p>
+    @endif
+    @if ($vente->motif_annulation)
+        <p class="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800" id="annulation">Annulée par {{ $vente->annuleur?->nom }}, le {{ $vente->annule_at?->format('d/m/Y') }} : {{ $vente->motif_annulation }}</p>
     @endif
     @if ($vente->motif_refus)
         <p class="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">Refusée : {{ $vente->motif_refus }}</p>

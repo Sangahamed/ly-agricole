@@ -124,18 +124,30 @@ class PretsTest extends TestCase
     #[Test]
     public function l_auteur_ne_valide_pas_sa_propre_demande(): void
     {
-        $directionAuteur = $this->directeur;
         $pret = Prets::demander([
             'producteur_id' => Producteur::factory()->create()->id,
             'campagne_id' => $this->campagne->id,
             'montant_fcfa' => 500_000,
             'forme' => FormePret::Especes,
             'echeance' => Carbon::today()->addMonth(),
-        ], $directionAuteur);
+        ], $this->agent);
 
-        $this->refusAttendu(fn () => Prets::valider($pret, $directionAuteur), 'votre propre demande');
-        $this->refusAttendu(fn () => Prets::refuser($pret, $directionAuteur, 'Je me ravise'), 'votre propre demande');
+        $this->refusAttendu(fn () => Prets::valider($pret, $this->agent), 'Votre rôle');
         $this->assertSame(0, $pret->validations()->count());
+
+        // Seule exception (2026-10-06) : la direction, compte supérieur, accorde son propre prêt
+        // dès la saisie — trace : une validation à son nom. Plus rien à valider ni à refuser.
+        $pretDirection = Prets::demander([
+            'producteur_id' => Producteur::factory()->create()->id,
+            'campagne_id' => $this->campagne->id,
+            'montant_fcfa' => 500_000,
+            'forme' => FormePret::Especes,
+            'echeance' => Carbon::today()->addMonth(),
+        ], $this->directeur);
+
+        $this->assertSame(StatutPret::Valide, $pretDirection->statut);
+        $this->assertSame([$this->directeur->id], $pretDirection->validations()->pluck('user_id')->all());
+        $this->refusAttendu(fn () => Prets::refuser($pretDirection, $this->directrice, 'Je me ravise'), 'plus en demande');
     }
 
     #[Test]

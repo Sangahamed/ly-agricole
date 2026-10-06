@@ -14,6 +14,8 @@ enum StatutPret: string
     case Decaisse = 'decaisse';
     /** Tout a été remis et tout a été remboursé. */
     case Solde = 'solde';
+    /** Annulé par son auteur ou la direction avant toute remise : ne compte nulle part. */
+    case Annule = 'annule';
 
     public function libelle(): string
     {
@@ -23,6 +25,7 @@ enum StatutPret: string
             self::Refuse => 'Refusé',
             self::Decaisse => 'Décaissé',
             self::Solde => 'Soldé',
+            self::Annule => 'Annulé',
         };
     }
 }

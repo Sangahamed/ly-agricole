@@ -34,14 +34,18 @@ use Illuminate\Support\Carbon;
  * @property string|null $motif_refus
  * @property int $cree_par
  * @property Carbon|null $valide_at
+ * @property int|null $annule_par
+ * @property Carbon|null $annule_at
+ * @property string|null $motif_annulation
  * @property-read Producteur $producteur
  * @property-read Campagne $campagne
  * @property-read User $auteur
+ * @property-read User|null $annuleur
  */
 #[Fillable([
     'id', 'reference', 'producteur_id', 'campagne_id', 'montant_fcfa', 'forme', 'prix_reference_kg_fcfa',
     'grammes_attendus', 'echeance', 'statut', 'validations_requises', 'partie_liee', 'accord_ecrit',
-    'motif_refus', 'motif_cloture', 'cree_par', 'valide_at',
+    'motif_refus', 'motif_cloture', 'cree_par', 'valide_at', 'annule_par', 'annule_at', 'motif_annulation',
 ])]
 class Pret extends Model
 {
@@ -132,6 +136,12 @@ class Pret extends Model
         return $this->belongsTo(User::class, 'cree_par');
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function annuleur(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'annule_par');
+    }
+
     /** @return HasMany<ValidationPret, $this> */
     public function validations(): HasMany
     {
@@ -168,6 +178,7 @@ class Pret extends Model
             'partie_liee' => 'boolean',
             'echeance' => 'date',
             'valide_at' => 'datetime',
+            'annule_at' => 'datetime',
         ];
     }
 }
