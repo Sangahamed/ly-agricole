@@ -222,6 +222,7 @@
                         </summary>
                         <div class="absolute right-0 mt-2 w-56 rounded-xl border border-stone-200 bg-white p-1.5 text-sm shadow-lg">
                             <p class="px-3 py-2 text-xs text-stone-500 sm:hidden">{{ $utilisateur->nom }} · {{ $utilisateur->role?->libelle() ?? 'Aucun rôle' }}</p>
+                            <a href="{{ route('mot-de-passe') }}" class="block rounded-lg px-3 py-2 hover:bg-stone-100">Mon mot de passe</a>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit" class="block w-full rounded-lg px-3 py-2 text-left hover:bg-stone-100">Se déconnecter</button>

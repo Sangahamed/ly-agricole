@@ -98,13 +98,14 @@ class Publications
      *     resume: array{premier: int, dernier: int, min: int, max: int, variation: int, changements: int}|null
      * }
      */
-    public static function serie(Produit $produit, ?Carbon $debut = null, ?Carbon $fin = null): array
+    public static function serie(Produit $produit, ?Carbon $debut = null, ?Carbon $fin = null, ?Collection $prixDuProduit = null): array
     {
         $fin = ($fin ?? Carbon::today())->copy()->startOfDay();
 
-        // Une valeur par date d'effet : la plus récemment saisie.
+        // Une valeur par date d'effet : la plus récemment saisie. `$prixDuProduit` (déjà triés par
+        // date d'effet puis id) évite de relire la table à chaque appel.
         $parDate = [];
-        foreach (PrixMarche::query()->where('produit_id', $produit->id)->orderBy('date_effet')->orderBy('id')->get() as $ligne) {
+        foreach ($prixDuProduit ?? self::prixDuProduit($produit) as $ligne) {
             $parDate[$ligne->date_effet->toDateString()] = $ligne;
         }
         $lignes = array_values($parDate);
@@ -155,14 +156,19 @@ class Publications
      *
      * @return list<array{campagne: Campagne, resume: array{premier: int, dernier: int, min: int, max: int, variation: int, changements: int}, depuis_precedente: int|null}>
      */
-    public static function parCampagne(Produit $produit, int $limite = 7): array
+    public static function parCampagne(Produit $produit, int $limite = 7, ?Collection $campagnesDuProduit = null, ?Collection $prixDuProduit = null): array
     {
+        // Lus une fois pour toutes les campagnes (une requête par campagne dépassait les 30 s de
+        // Vercel sur /prix, base distante : 2026-10-06).
+        $prixDuProduit ??= self::prixDuProduit($produit);
+        $campagnesDuProduit ??= Campagne::query()->where('produit_id', $produit->id)->orderByDesc('debut')->get();
+
         $resultat = [];
-        foreach (Campagne::query()->where('produit_id', $produit->id)->orderByDesc('debut')->get() as $campagne) {
+        foreach ($campagnesDuProduit as $campagne) {
             if ($campagne->debut->isFuture()) {
                 continue;
             }
-            $serie = self::serie($produit, $campagne->debut, $campagne->fin->isFuture() ? Carbon::today() : $campagne->fin);
+            $serie = self::serie($produit, $campagne->debut, $campagne->fin->isFuture() ? Carbon::today() : $campagne->fin, $prixDuProduit);
             if ($serie['resume'] !== null) {
                 $resultat[] = ['campagne' => $campagne, 'resume' => $serie['resume'], 'depuis_precedente' => null];
             }
@@ -190,18 +196,23 @@ class Publications
     public static function tableauCampagnes(int $nb = 7): array
     {
         $produits = Produit::query()->where('actif', true)->orderBy('nom')->get();
+        $ids = $produits->pluck('id');
+
+        // Deux requêtes pour tout le tableau, réparties ensuite par produit.
+        $campagnes = Campagne::query()->whereIn('produit_id', $ids)->orderByDesc('debut')->get();
+        $prix = PrixMarche::query()->whereIn('produit_id', $ids)->orderBy('date_effet')->orderBy('id')->get()->groupBy('produit_id');
 
         // Les colonnes sont des années de campagne (octobre à septembre) : la campagne du cacao
         // 2023-2024 (octobre 2023) et celle de l'anacarde 2024 (février 2024) tombent dans la même.
-        $annees = Campagne::query()->whereIn('produit_id', $produits->pluck('id'))
-            ->where('debut', '<=', Carbon::today()->toDateString())->get(['debut'])
+        $annees = $campagnes->filter(fn (Campagne $c) => ! $c->debut->isFuture())
             ->map(fn (Campagne $c) => self::anneeDeCampagne($c->debut))->unique()->sortDesc()->values();
         $codes = array_reverse(array_slice($annees->all(), 0, max($nb, 1)));
+        $campagnes = $campagnes->groupBy('produit_id');
 
         $lignes = [];
         foreach ($produits as $produit) {
             $cases = array_fill_keys($codes, null);
-            foreach (self::parCampagne($produit, 100) as $l) {
+            foreach (self::parCampagne($produit, 100, $campagnes->get($produit->id, collect()), $prix->get($produit->id, collect())) as $l) {
                 $code = self::anneeDeCampagne($l['campagne']->debut);
                 if (array_key_exists($code, $cases)) {
                     $cases[$code] = ['prix' => $l['resume']['dernier'], 'ecart' => $l['depuis_precedente']];
@@ -211,6 +222,12 @@ class Publications
         }
 
         return ['campagnes' => $codes, 'lignes' => $lignes];
+    }
+
+    /** @return Collection<int, PrixMarche> Par date d'effet puis ordre de saisie. */
+    private static function prixDuProduit(Produit $produit): Collection
+    {
+        return PrixMarche::query()->where('produit_id', $produit->id)->orderBy('date_effet')->orderBy('id')->get();
     }
 
     /** Année de campagne d'une date de début : d'octobre à septembre (« 2023-2024 »). */

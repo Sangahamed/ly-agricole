@@ -4,6 +4,7 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build && rm -rf dist && cp -r public dist && rm -f dist/index.php dist/.htaccess dist/hot",
   "outputDirectory": "dist",
+  "regions": ["fra1"],
   "functions": {
     "api/index.php": {
       "includeFiles": "storage/**",
