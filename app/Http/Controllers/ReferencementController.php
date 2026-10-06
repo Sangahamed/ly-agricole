@@ -10,9 +10,7 @@ class ReferencementController extends Controller
 {
     public function plan(): Response
     {
-        return response()
-            ->view('referencement.plan', ['pages' => Referencement::pagesDuPlan()])
-            ->header('Content-Type', 'application/xml; charset=utf-8');
+        return response(Referencement::planXml())->header('Content-Type', 'application/xml; charset=utf-8');
     }
 
     public function robots(): Response

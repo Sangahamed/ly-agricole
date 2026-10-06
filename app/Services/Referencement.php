@@ -6,6 +6,7 @@ use App\Models\Actualite;
 use App\Models\PrixMarche;
 use App\Models\Produit;
 use App\Support\Format;
+use Throwable;
 
 /**
  * Ce que les moteurs de recherche et les assistants IA lisent de la vitrine : descriptions des
@@ -56,29 +57,62 @@ class Referencement
     /** @return list<array{loc: string, lastmod: string|null}> */
     public static function pagesDuPlan(): array
     {
-        // `prix_marche` est un registre (jamais modifié) : sa date utile est created_at, il n'a pas
-        // d'updated_at. Attention : sqlite lit un nom de colonne inconnu comme du texte, sans erreur.
-        $derniers = PrixMarche::query()->groupBy('produit_id')->selectRaw('produit_id, max(created_at) as dernier')->pluck('dernier', 'produit_id');
-        $dernierPrix = $derniers->max();
         $pages = [
-            ['loc' => route('accueil'), 'lastmod' => $dernierPrix],
-            ['loc' => route('prix.evolution'), 'lastmod' => $dernierPrix],
+            ['loc' => route('accueil'), 'lastmod' => null],
+            ['loc' => route('prix.evolution'), 'lastmod' => null],
         ];
 
-        foreach (Produit::query()->whereIn('id', $derniers->keys())->orderBy('nom')->get() as $produit) {
-            $pages[] = ['loc' => route('prix.evolution', ['produit' => $produit->id]), 'lastmod' => $derniers->get($produit->id)];
+        // `prix_marche` est un registre (jamais modifié) : sa date utile est created_at, il n'a pas
+        // d'updated_at. Attention : sqlite lit un nom de colonne inconnu comme du texte, sans erreur.
+        $derniers = [];
+        foreach (PrixMarche::query()->groupBy('produit_id')->selectRaw('produit_id, max(created_at) as dernier')->get() as $ligne) {
+            $derniers[(int) $ligne->getAttribute('produit_id')] = self::date($ligne->getAttribute('dernier'));
+        }
+        $pages[0]['lastmod'] = $pages[1]['lastmod'] = $derniers === [] ? null : max($derniers);
+
+        foreach (Produit::query()->whereIn('id', array_keys($derniers))->orderBy('nom')->get(['id']) as $produit) {
+            $pages[] = ['loc' => route('prix.evolution', ['produit' => $produit->id]), 'lastmod' => $derniers[$produit->id] ?? null];
         }
 
-        $actualites = Actualite::query()->visibles()->orderByDesc('publie_le')->get();
-        $pages[] = ['loc' => route('actualites'), 'lastmod' => $actualites->max('updated_at')?->toAtomString()];
+        $actualites = Actualite::query()->visibles()->orderByDesc('publie_le')->get(['id', 'updated_at']);
+        $pages[] = ['loc' => route('actualites'), 'lastmod' => self::date($actualites->first()?->getRawOriginal('updated_at'))];
         foreach ($actualites as $actualite) {
-            $pages[] = ['loc' => route('actualites.voir', $actualite), 'lastmod' => $actualite->updated_at?->toAtomString()];
+            $pages[] = ['loc' => route('actualites.voir', $actualite->id), 'lastmod' => self::date($actualite->getRawOriginal('updated_at'))];
         }
 
-        return array_map(fn (array $p) => [
-            'loc' => $p['loc'],
-            'lastmod' => $p['lastmod'] === null ? null : date(DATE_ATOM, strtotime((string) $p['lastmod'])),
-        ], $pages);
+        return $pages;
+    }
+
+    /** Le plan du site en XML, construit sans gabarit. */
+    public static function planXml(): string
+    {
+        try {
+            $pages = self::pagesDuPlan();
+        } catch (Throwable $e) {
+            // Un plan sans dates vaut mieux qu'une erreur 500 pour Google ; la cause va au journal.
+            report($e);
+            $pages = [['loc' => route('accueil'), 'lastmod' => null], ['loc' => route('prix.evolution'), 'lastmod' => null], ['loc' => route('actualites'), 'lastmod' => null]];
+        }
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
+        foreach ($pages as $page) {
+            $xml .= '  <url><loc>'.htmlspecialchars($page['loc'], ENT_XML1 | ENT_QUOTES, 'UTF-8').'</loc>'
+                .($page['lastmod'] === null ? '' : '<lastmod>'.$page['lastmod'].'</lastmod>')
+                ."</url>\n";
+        }
+
+        return $xml.'</urlset>'."\n";
+    }
+
+    /** Date AAAA-MM-JJ d'une valeur de la base (texte ou date), null si illisible. */
+    private static function date(mixed $valeur): ?string
+    {
+        if ($valeur === null || $valeur === '') {
+            return null;
+        }
+        $horodatage = strtotime((string) $valeur);
+
+        return $horodatage === false ? null : gmdate('Y-m-d', $horodatage);
     }
 
     public static function robots(): string

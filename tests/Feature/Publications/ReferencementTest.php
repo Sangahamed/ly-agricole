@@ -10,6 +10,7 @@ use App\Services\Publications;
 use App\Services\Referencement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -53,6 +54,28 @@ class ReferencementTest extends TestCase
         $this->assertNotContains(route('prix.evolution', ['produit' => $this->tomate->id]), $adresses);
         $this->assertContains(route('actualites.voir', $actualite), $adresses);
         $this->assertCount(5, $adresses);
+    }
+
+    #[Test]
+    public function si_une_lecture_echoue_le_plan_reste_un_xml_valide_sans_dates(): void
+    {
+        $this->withoutExceptionHandling();
+        Schema::drop('actualites');
+
+        $reponse = $this->get('/sitemap.xml')->assertOk();
+        $xml = simplexml_load_string($reponse->getContent());
+
+        $this->assertNotFalse($xml);
+        $this->assertCount(3, $xml->url);
+        $this->assertSame(route('accueil'), (string) $xml->url[0]->loc);
+    }
+
+    #[Test]
+    public function les_dates_du_plan_sont_celles_des_derniers_prix_publies(): void
+    {
+        $xml = simplexml_load_string($this->get('/sitemap.xml')->getContent());
+
+        $this->assertSame(now()->toDateString(), (string) $xml->url[0]->lastmod);
     }
 
     #[Test]
