@@ -5,6 +5,66 @@ Une entrée par session, la plus récente en haut : ce qui a été fait, ce qui 
 
 ---
 
+## 2026-10-05 / 06 — Mise en production sur Vercel + Neon (ylagro.com) — EN LIGNE, CONNEXION RÉELLE À ESSAYER
+
+**Demande.** Le site déployé sur Vercel (domaine OVH `ylagro.com`) tombait en
+`QueryException`. Le remettre en marche, puis constater sur le site et corriger.
+
+**Architecture de production constatée.** Vercel (runtime `vercel-php@0.9.0`, PHP 8.5, entrée
+`api/index.php`) ; base **Neon PostgreSQL** (`eu-central-1`, et non MySQL) ; Vercel déploie le dépôt
+**`Ly-agro/ly-agricole`**, pas `Sangahamed/ly-agricole` : chaque push doit y être fusionné (PR ;
+le compte `Sangahamed` peut ouvrir une PR mais **pas la fusionner**).
+
+**Fait (commits `d8138f2` → `12672e2`, PR Ly-agro #3, fusion `5d07457`).**
+
+- **Connexion Neon** : la libpq du runtime Vercel n'envoie pas le SNI → « Endpoint ID is not
+  specified ». L'astuce `endpoint=…;` dans le mot de passe a échoué sur Vercel (et fait REFUSER le
+  mot de passe avec une libpq récente, XAMPP). Retenu : `App\Support\ConnecteurPostgresNeon` ajoute
+  `options='endpoint=ep-…'` au DSN, seulement si `DB_NEON_ENDPOINT` (posé par `api/index.php`).
+  `config/database.php` lit aussi les `POSTGRES_*` de l'intégration Neon, décompose une `DB_URL`
+  (sinon Laravel l'applique par-dessus à la connexion), `sslmode=require` pour un hôte Neon.
+- **Sécurité** : `APP_DEBUG=true` dans les réglages Vercel publiait la page d'erreur détaillée
+  (cookies, en-têtes, jeton OIDC Vercel). `api/index.php` **impose** `APP_DEBUG=false`.
+- **Journaux** : Vercel ne garde que la fin d'une ligne trop longue → le message de l'exception
+  disparaissait derrière la pile. Canal `vercel` (une ligne, sans pile), imposé par `api/index.php`.
+- **Divers Vercel** : `BROADCAST_CONNECTION=log` par défaut (pas de Reverb en serverless) ;
+  région **`fra1`** à côté de Neon (au lieu de `iad1`) ; Vercel Cron `/cron/alertes` à 7 h
+  (`TacheCronController`, `CRON_SECRET` en `Bearer`, liste fermée de tâches).
+- **`/prix` en 504** : `tableauCampagnes` lisait les prix une fois par campagne et par produit
+  (centaines de requêtes × latence distante). Deux requêtes pour le tableau, 27 pour la page.
+- **Comptes et données** : `php artisan ly:creer-compte --role=admin|direction` (saisie masquée) ;
+  `ProductionSeeder` = cultures + prix bord-champ PUBLIÉS des campagnes passées (seeders existants,
+  sources), aucun compte. Lancés sur Neon par le développeur (37 produits, 119 prix, 2 comptes).
+- **« Mon mot de passe »** (menu du compte, `ChangerMotDePasse`) : mot de passe actuel exigé,
+  5 essais, journalisé masqué (trait `Journalise`), jeton « rester connecté » renouvelé.
+- `.env.example` rétabli (supprimé par un commit `mkp`) avec la liste des variables de production.
+
+**Vérifié en l'exécutant.**
+
+- 798 tests verts (786 → 798), Pint propre. Tests lancés avec `.env` basculé sur sqlite
+  (le `.env` local pointait sur Neon = production).
+- Connexion à Neon depuis le poste, avec et sans l'option `endpoint` : OK.
+- En ligne après fusion : `/` 200 en 1,5 s, `/prix` 200 en 1,9 s (avant : 504), `/actualites`,
+  `/connexion`, `/up` 200 ; `/mon-mot-de-passe` → connexion ; en-tête `x-vercel-id` en `fra1` ;
+  CSS et JS 200 ; `/diagnostic/base` (route temporaire, retirée) 404.
+
+**Pas vérifié.** Connexion avec un vrai compte et changement de mot de passe en ligne ; le cron
+avec le bon secret (403 au dernier essai : `CRON_SECRET` absent de Vercel à ce moment-là) ;
+notifications push (clés VAPID à recopier dans Vercel, `QUEUE_CONNECTION=sync`).
+
+**Reste à faire (développeur).** Recopier dans Vercel `CRON_SECRET`, `PUSH_VAPID_*`,
+`QUEUE_CONNECTION=sync`, puis supprimer `secrets-vercel.txt`, `cles-vapid.txt`, `env.sauvegarde`
+(dans `C:\xampp\htdocs`) ; retirer `APP_DEBUG=true` des réglages Vercel ; remettre MySQL dans le
+`.env` local. Sauvegardes : `ly:sauvegarder` (mysqldump) ne marche ni sur Vercel ni avec Neon —
+à repenser (historique de restauration Neon, selon l'offre). `notifications:alertes` est la seule
+tâche planifiée branchée : `vitrine:actualites` ne tourne pas en production.
+
+**Ce qui a surpris.** Le mot de passe Neon s'est affiché en clair deux fois pendant la session
+(URL complète collée dans `DB_HOST`, puis un script de contrôle mal masqué) : régénéré depuis.
+La page Logs de Vercel fige l'onglet de l'extension Chrome : lire les journaux à la main.
+
+---
+
 ## 2026-10-02 — Suivi des agents en direct (Reverb), comptes d'agents, « Supprimer », anacarde — FAIT, À VOIR DANS LE NAVIGATEUR
 
 **Demande.** Chaque action d'un agent → notification push au responsable (Reverb) ; le responsable

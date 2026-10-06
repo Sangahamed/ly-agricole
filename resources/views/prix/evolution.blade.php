@@ -1,5 +1,5 @@
 @php use App\Support\Format; @endphp
-<x-vitrine.page titre="Évolution des prix bord-champ" description="Évolution des prix bord-champ affichés par LY AGRICOLE, par produit, campagne et période.">
+<x-vitrine.page :titre="$referencement['titre']" :description="$referencement['description']" :canonique="$referencement['canonique']">
     <section class="mx-auto max-w-5xl px-4 py-14 sm:px-6 sm:py-20">
         <a href="{{ route('accueil') }}#prix" class="v-lien text-sm">← Les prix du moment</a>
         <p class="mt-6 text-sm font-medium uppercase tracking-widest text-emerald-800">Prix bord-champ</p>

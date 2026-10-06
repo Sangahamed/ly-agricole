@@ -9,6 +9,7 @@ use App\Http\Controllers\PrixController;
 use App\Http\Controllers\ProducteurController;
 use App\Http\Controllers\RapportCampagneController;
 use App\Http\Controllers\RapportController;
+use App\Http\Controllers\ReferencementController;
 use App\Http\Controllers\TacheCronController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\VitrineController;
@@ -74,6 +75,11 @@ Route::get('/', [VitrineController::class, 'accueil'])->name('accueil');
 Route::get('/prix', [PrixController::class, 'evolution'])->name('prix.evolution');
 Route::get('/actualites', [VitrineController::class, 'actualites'])->name('actualites');
 Route::get('/actualites/{actualite}', [VitrineController::class, 'actualite'])->name('actualites.voir');
+
+// Référencement : plan du site, robots.txt et llms.txt générés depuis les prix publiés.
+Route::get('/sitemap.xml', [ReferencementController::class, 'plan'])->name('referencement.plan');
+Route::get('/robots.txt', [ReferencementController::class, 'robots'])->name('referencement.robots');
+Route::get('/llms.txt', [ReferencementController::class, 'llms'])->name('referencement.llms');
 
 // Tâches planifiées appelées par Vercel Cron (protégées par CRON_SECRET).
 Route::get('/cron/{tache}', TacheCronController::class)->name('cron');

@@ -6,6 +6,14 @@
 
         <title>LY AGRICOLE — Du champ à l'acheteur</title>
         <meta name="description" content="LY AGRICOLE, entreprise agricole ivoirienne : achat bord-champ, stockage et commercialisation de cacao, de café, d'anacarde, de karité, de tomate et de nombreuses autres cultures, selon les saisons.">
+        <link rel="canonical" href="{{ route('accueil') }}">
+        <meta property="og:title" content="LY AGRICOLE — Du champ à l'acheteur">
+        <meta property="og:description" content="Prix bord-champ en Côte d'Ivoire et commercialisation d'anacarde, de karité, de tomate et d'autres cultures.">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ route('accueil') }}">
+        <meta property="og:image" content="{{ asset('images/logo-yl-agro.png') }}">
+        <meta property="og:locale" content="fr_CI">
+        <script type="application/ld+json">@json(\App\Services\Referencement::organisation())</script>
         <meta name="theme-color" content="#123524">
         <link rel="icon" type="image/png" href="{{ asset('images/logo-yl-agro.png') }}">
 

@@ -6,6 +6,7 @@ use App\Models\Campagne;
 use App\Models\PrixMarche;
 use App\Models\Produit;
 use App\Services\Publications;
+use App\Services\Referencement;
 use App\Support\CourbeSvg;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -51,6 +52,12 @@ class PrixController extends Controller
             'au' => $request->query('au'),
             'campagnes' => Campagne::query()->with('produit')->whereIn('produit_id', $produits->pluck('id'))->where('debut', '<=', Carbon::today()->toDateString())->orderByDesc('debut')->get(),
             'graphiques' => $graphiques,
+            // Une page par produit pour les moteurs : son titre, ses vrais derniers prix, son adresse.
+            'referencement' => [
+                'titre' => Referencement::titrePrix($choisi),
+                'description' => Referencement::descriptionPrix($choisi),
+                'canonique' => $choisi === null ? route('prix.evolution') : route('prix.evolution', ['produit' => $choisi->id]),
+            ],
         ]);
     }
 

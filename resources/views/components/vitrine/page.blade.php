@@ -1,4 +1,4 @@
-@props(['titre', 'description' => null])
+@props(['titre', 'description' => null, 'canonique' => null])
 <!DOCTYPE html>
 <html lang="fr">
     <head>
@@ -6,7 +6,17 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title>{{ $titre }} — LY AGRICOLE</title>
-        @if ($description)<meta name="description" content="{{ $description }}">@endif
+        @if ($description)
+            <meta name="description" content="{{ $description }}">
+            <meta property="og:description" content="{{ $description }}">
+        @endif
+        {{-- Adresse officielle de la page : sans les filtres d'affichage (période, dates). --}}
+        <link rel="canonical" href="{{ $canonique ?? request()->url() }}">
+        <meta property="og:title" content="{{ $titre }} — LY AGRICOLE">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ $canonique ?? request()->url() }}">
+        <meta property="og:image" content="{{ asset('images/logo-yl-agro.png') }}">
+        <meta property="og:locale" content="fr_CI">
         <meta name="theme-color" content="#123524">
         <link rel="icon" type="image/png" href="{{ asset('images/logo-yl-agro.png') }}">
 
