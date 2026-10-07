@@ -33,20 +33,25 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label for="investisseurId" class="mb-1 block text-sm font-medium text-stone-700">Investisseur</label>
-                    <select wire:model="investisseurId" id="investisseurId" class="block w-full rounded-md border border-stone-300 px-3 py-2 focus:border-emerald-600 focus:outline-none">
+                    {{-- Liste ET saisie : choisir, ou taper un nom (investisseur sans compte). --}}
+                    <select wire:model="investisseurId" id="investisseurId" data-recherche-creer class="block w-full rounded-md border border-stone-300 px-3 py-2 focus:border-emerald-600 focus:outline-none">
                         <option value="">— Apport de LY elle-même —</option>
                         @foreach ($investisseurs as $i)
                             <option value="{{ $i->id }}">{{ $i->nom }}</option>
                         @endforeach
+                        @foreach ($nomsSansCompte as $nom)
+                            <option value="{{ $nom }}">{{ $nom }} (sans compte)</option>
+                        @endforeach
                     </select>
+                    <p class="mt-1 text-xs text-stone-500">Pas dans la liste ? Tapez son nom : il est enregistré sans compte de connexion.</p>
                     @error('investisseurId') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="compteId" class="mb-1 block text-sm font-medium text-stone-700">Compte dédié</label>
+                    <label for="compteId" class="mb-1 block text-sm font-medium text-stone-700">Compte</label>
                     <select wire:model="compteId" id="compteId" class="block w-full rounded-md border border-stone-300 px-3 py-2 focus:border-emerald-600 focus:outline-none">
                         <option value="">— Choisir —</option>
                         @foreach ($comptesDedies as $c)
-                            <option value="{{ $c->id }}">{{ $c->nom }}</option>
+                            <option value="{{ $c->id }}">{{ $c->nom }}{{ $campagne && $c->campagne_id === $campagne->id ? ' — compte de la campagne' : '' }}</option>
                         @endforeach
                     </select>
                     @error('compteId') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
@@ -112,7 +117,7 @@
                 <ul class="divide-y divide-stone-100 text-sm">
                     @foreach ($repartition['lignes'] as $ligne)
                         <li class="flex items-center justify-between gap-4 py-2">
-                            <span>{{ $ligne['investisseur']->nom }}</span>
+                            <span>{{ $ligne['nom'] }}</span>
                             <span class="tabular-nums">{{ Format::fcfa($ligne['montant']) }}
                                 <span class="ml-2 text-xs text-stone-500">({{ intdiv($ligne['part_pour_mille'], 10) }},{{ str_pad((string) ($ligne['part_pour_mille'] % 10), 1, '0', STR_PAD_LEFT) }} %)</span>
                             </span>
@@ -140,7 +145,7 @@
                     @forelse ($apports as $a)
                         <tr wire:key="apport-{{ $a->id }}">
                             <td class="whitespace-nowrap px-4 py-3">{{ $a->date_apport->format('d/m/Y') }}</td>
-                            <td class="px-4 py-3">{{ $a->investisseur->nom ?? 'LY AGRICOLE (apport propre)' }}</td>
+                            <td class="px-4 py-3">{{ $a->nomApporteur() }}</td>
                             <td class="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums {{ $a->montant_fcfa < 0 ? 'text-red-700' : '' }}">{{ Format::fcfa($a->montant_fcfa) }}</td>
                             <td class="px-4 py-3 text-stone-600">{{ $a->motif ?: '—' }}</td>
                             <td class="whitespace-nowrap px-4 py-3 text-stone-600">{{ $a->auteur->nom }}</td>

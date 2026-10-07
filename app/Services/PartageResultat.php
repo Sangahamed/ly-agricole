@@ -31,7 +31,7 @@ final class PartageResultat
 
     /**
      * @param  int  $resultat  résultat net de la campagne (négatif = perte)
-     * @param  array<int, int>  $investis  identifiant de l'investisseur => montant effectivement investi (> 0)
+     * @param  array<int|string, int>  $investis  clé de l'investisseur (id du compte, ou « nom:… » sans compte) => montant effectivement investi (> 0)
      * @param  int  $apportLy  apport propre de LY sur les fonds de la campagne (art. 7), ≥ 0
      * @param  bool  $fauteLy  art. 13.4 : perte due à une faute de gestion, une fraude ou une utilisation non
      *                         conforme des fonds ⇒ supportée par LY seule. Décision à prendre par la direction, jamais déduite.
@@ -44,7 +44,7 @@ final class PartageResultat
      *     part_ly: int,
      *     non_impute: int,
      *     faute_ly: bool,
-     *     lignes: array<int, array{investi: int, part: int, somme_due: int}>
+     *     lignes: array<int|string, array{investi: int, part: int, somme_due: int}>
      * } `part` : quote-part de bénéfice (sens « benefice ») ou part de perte (sens « perte »), toujours ≥ 0.
      *   `non_impute` : partie de la perte qui dépasse ce que les investisseurs ont investi, qu'on ne peut pas leur
      *   faire supporter (aucun investisseur ne doit de l'argent) ; le contrat ne dit pas qui la supporte.
@@ -104,9 +104,9 @@ final class PartageResultat
     }
 
     /**
-     * @param  array<int, int>  $parts
-     * @param  array<int, int>  $investis
-     * @return array{sens: string, collecte: int, apport_ly: int, fonds: int, part_investisseurs: int, part_ly: int, non_impute: int, faute_ly: bool, lignes: array<int, array{investi: int, part: int, somme_due: int}>}
+     * @param  array<int|string, int>  $parts
+     * @param  array<int|string, int>  $investis
+     * @return array{sens: string, collecte: int, apport_ly: int, fonds: int, part_investisseurs: int, part_ly: int, non_impute: int, faute_ly: bool, lignes: array<int|string, array{investi: int, part: int, somme_due: int}>}
      */
     private static function rendre(string $sens, int $collecte, int $apportLy, int $partInvestisseurs, int $partLy, int $nonImpute, bool $fauteLy, array $parts, array $investis): array
     {
@@ -149,8 +149,8 @@ final class PartageResultat
     /**
      * Répartit `$total` entre les investisseurs au prorata de `$poids`, méthode du plus fort reste.
      *
-     * @param  array<int, int>  $poids  identifiant => montant investi (> 0), triés par identifiant
-     * @return array<int, int>
+     * @param  array<int|string, int>  $poids  identifiant => montant investi (> 0), triés par identifiant
+     * @return array<int|string, int>
      */
     private static function repartir(int $total, array $poids): array
     {

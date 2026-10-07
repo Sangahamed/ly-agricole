@@ -5,6 +5,76 @@ Une entrée par session, la plus récente en haut : ce qui a été fait, ce qui 
 
 ---
 
+## 2026-10-07 — 500 en production, ventes par l'agent, fin de campagne, apports, fichiers R2, listes avec recherche, bandeaux — FAIT, TESTÉ, PAS DÉPLOYÉ NI VU DANS LE NAVIGATEUR
+
+**Signalé en production (ylagro.com, PostgreSQL Neon).** `/rapports` en 500 ; « la plupart des
+suppressions » en 500 ; ajout d'une photo comme justificatif en 500 ; une campagne dont la date
+de fin est passée reçoit encore de l'argent.
+
+**Causes trouvées et corrigées.**
+
+- `/rapports` : l'alerte « photo de pesée attendue » faisait `whereDoesntHave('photoPesee')`,
+  soit `photos_terrain.id (uuid) = achats.photo_pesee (varchar)` — PostgreSQL refuse, MySQL et
+  sqlite acceptent (d'où des tests verts). Comparaison faite en PHP (`Rapports::alertes`).
+- Envois de fichiers : tout allait sur le disque `local` ; Vercel est en lecture seule → 500.
+  Disque configurable `FICHIERS_DISK` (`App\Support\Fichiers`) + disque `r2` (Cloudflare,
+  `league/flysystem-aws-s3-v3` ajouté) + `config/livewire.php` (`LIVEWIRE_TMP_DISK`). D12.
+- Fin de campagne : `Campagne::estTerminee()` / `exigerEnCours()`, sur apports, prêts, achats,
+  à la date de l'opération. D13.
+
+**Base de production.** `migrate:status` sur Neon (lu avec `php -d extension=pdo_pgsql`, l'extension
+existe dans XAMPP mais n'est pas activée) : la migration du commit `fty`
+(`2027_01_15…annulation_to_prets_et_ventes`) n'avait **pas** été jouée — toute annulation de prêt
+ou de vente en ligne écrivait dans des colonnes absentes. Avec l'accord de l'utilisateur, les deux
+migrations en attente (dont `apporteur_nom`) ont été jouées sur Neon le 2026-10-07 (ajout de
+colonnes vides seulement), statut relu ensuite : « Ran ».
+
+**Suppressions en 500 : cause certaine NON établie** (la migration manquante ci-dessus en explique une partie). Pas de journal Vercel accessible d'ici, et le
+PostgreSQL 18 installé ne démarre pas (`initdb` : DLL manquante, service arrêté). Pistes
+écartées en lisant le code : pas de verrou `FOR UPDATE` sur un agrégat, pas d'erreur avalée dans
+une transaction, pas d'autre comparaison uuid/texte en SQL. À faire : la ligne d'erreur du
+journal Vercel au moment d'une suppression.
+
+**Demandes faites.**
+
+- **L'agent de terrain vend** : `voir-ventes`, `saisir-ventes` ; il ne voit que ses ventes, pas la
+  marge du lot ; validation (au-dessus du seuil) et encaissement restent au bureau ; il ne peut
+  pas annuler une vente déjà encaissée.
+- **Apports** : investisseur « liste et saisie » (nom sans compte, `apports.apporteur_nom`,
+  migration) ; tout compte actif (art. 5 abandonné, choix de l'utilisateur) ; même chose depuis
+  Trésorerie → Entrée (champ Campagne ajouté). Parts, résultat, portail suivent (`cle` = id ou
+  `nom:…`). D13.
+- **Recherche dans toutes les listes** (`resources/js/recherche-listes.js`, Tom Select) : les
+  74 `<select>` deviennent filtrables ; le `<select>` d'origine garde la valeur (wire:model
+  intact) ; crochets Livewire `morph.removing` (garder le bloc) et `commit` (resynchroniser).
+  `data-recherche-creer` = saisie libre ; `data-sans-recherche` = natif.
+- **Bandeaux de succès / d'erreur** (`resources/js/notifications-flash.js`) : sans toucher aux
+  écrans — propriété `statut` d'un composant, message de session, erreurs de validation, et
+  requête en échec (500, 419) au lieu de la fenêtre de Livewire.
+- Avis : « annulé » au lieu de « annulé par la direction » ; une vente, un prêt, une dépense
+  annulés n'étaient pas annoncés (ou annoncés « refusés ») ; rien n'est envoyé à qui annule sa
+  propre saisie.
+
+**Vérifié en l'exécutant.** 822 tests PHP verts (suite complète), puis 207 relancés après les derniers changements (gabarits, icônes) ; favicon : `public/favicon.ico` était vide (0 octet) et le back-office n'en déclarait aucun — icônes tirées du logo (16 à 180 px), `partials/icones` dans tous les gabarits, Larastan 0 erreur,
+Pint, `npm run build`, disque `r2` construit par Laravel (adaptateur S3) avec des valeurs factices.
+
+**Pas vérifié.** Rien dans le navigateur : MySQL et le serveur local ont été arrêtés par Claude
+Code faute de mémoire, et l'extension Chrome ne transmettait pas la saisie la veille. Tom Select
+et les bandeaux sont donc à essayer à la main (un `<select>` en `wire:model.live`, un formulaire
+en erreur). Rien en production : à déployer, puis créer le compartiment R2.
+
+**Pour la production (Vercel → Settings → Environment Variables).** `FICHIERS_DISK=r2`,
+`LIVEWIRE_TMP_DISK=r2`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`
+(`https://<id du compte>.r2.cloudflarestorage.com`). Sur le compartiment R2, une règle CORS :
+origine `https://www.ylagro.com`, méthodes `PUT`/`GET`, en-tête `*` (Livewire envoie le
+fichier directement du navigateur vers R2). Puis `php artisan migrate --force` sur Neon (deux
+migrations : annulation prêts/ventes, `apporteur_nom`).
+
+**Test instable préexistant.** `RendementsTest::la_carte_classe_les_parcelles_par_cinquiemes`
+indexe par nom Faker (doublons possibles) : à indexer par id.
+
+---
+
 ## 2026-10-06 (soir) — Direction sans validation, modifier / supprimer pour chacun, apport investisseur en Trésorerie — FAIT, TESTÉ, PAS ENCORE VU DANS LE NAVIGATEUR NI DÉPLOYÉ
 
 **Demande.** « La direction doit pouvoir modifier ou supprimer tout ; quand elle crée un prêt ou

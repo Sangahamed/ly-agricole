@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PhotoTerrain;
+use App\Support\Fichiers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -21,8 +22,8 @@ class PhotoTerrainController extends Controller
             $moi->can('valider-achats') || $moi->can('gerer-tresorerie') || $photo->user_id === $moi->id
             || ($moi->can('voir-visites') && $photo->visites()->exists())
         ), 403);
-        abort_unless(Storage::disk('local')->exists($photo->chemin), 404);
+        abort_unless(Storage::disk(Fichiers::disque())->exists($photo->chemin), 404);
 
-        return Storage::disk('local')->response($photo->chemin, headers: ['Cache-Control' => 'private, max-age=3600']);
+        return Storage::disk(Fichiers::disque())->response($photo->chemin, headers: ['Cache-Control' => 'private, max-age=3600']);
     }
 }

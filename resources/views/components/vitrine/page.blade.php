@@ -18,7 +18,7 @@
         <meta property="og:image" content="{{ asset('images/logo-yl-agro.png') }}">
         <meta property="og:locale" content="fr_CI">
         <meta name="theme-color" content="#123524">
-        <link rel="icon" type="image/png" href="{{ asset('images/logo-yl-agro.png') }}">
+        @include('partials.icones')
 
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])

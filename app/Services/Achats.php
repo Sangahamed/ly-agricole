@@ -61,6 +61,7 @@ class Achats
             if ($campagne->statut !== StatutCampagne::Ouverte) {
                 throw new OperationRefusee("La campagne {$campagne->code} n'est pas ouverte : pas d'achat.");
             }
+            $campagne->exigerEnCours('achat', $date);
             if ($lot->campagne_id !== $campagne->id || $lot->statut !== StatutLot::Ouvert) {
                 throw new OperationRefusee("Le lot {$lot->code} n'est pas un lot ouvert de cette campagne.");
             }

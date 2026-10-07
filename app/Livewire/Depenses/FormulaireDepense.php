@@ -11,6 +11,7 @@ use App\Models\CompteTresorerie;
 use App\Models\Depense;
 use App\Models\User;
 use App\Services\Depenses;
+use App\Support\Fichiers;
 use App\Support\Montant;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -124,7 +125,7 @@ class FormulaireDepense extends Component
         $auteur = auth()->user();
         $nouveauFichier = $this->justificatif !== null;
         $chemin = $nouveauFichier
-            ? $this->justificatif->store('depenses/justificatifs', 'local')
+            ? $this->justificatif->store('depenses/justificatifs', Fichiers::disque())
             : Depense::query()->whereKey($this->corrigeId)->value('justificatif');
         $donnees = [
             'categorie_id' => (int) $this->categorieId,
@@ -147,12 +148,12 @@ class FormulaireDepense extends Component
             });
         } catch (OperationRefusee $e) {
             if ($nouveauFichier) {
-                Storage::disk('local')->delete((string) $chemin);
+                Storage::disk(Fichiers::disque())->delete((string) $chemin);
             }
             throw ValidationException::withMessages(['montant' => $e->getMessage()]);
         } catch (\Throwable $e) {
             if ($nouveauFichier) {
-                Storage::disk('local')->delete((string) $chemin);
+                Storage::disk(Fichiers::disque())->delete((string) $chemin);
             }
             throw $e;
         }

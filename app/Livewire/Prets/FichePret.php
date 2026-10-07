@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Prets;
 use App\Services\Remboursements;
 use App\Services\StockIntrants;
+use App\Support\Fichiers;
 use App\Support\Montant;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -308,7 +309,7 @@ class FichePret extends Component
             'dateDecaissement.before_or_equal' => 'La date ne peut pas être dans le futur.',
         ], ['compteId' => 'compte', 'dateDecaissement' => 'date', 'reference' => 'référence', 'recu' => 'reçu']);
 
-        $chemin = $this->recu?->store('prets/recus', 'local');
+        $chemin = $this->recu?->store('prets/recus', Fichiers::disque());
 
         try {
             Prets::decaisser($pret, [
@@ -320,7 +321,7 @@ class FichePret extends Component
             ], $this->moi(), $chemin ?: null);
         } catch (OperationRefusee $e) {
             if ($chemin) {
-                Storage::disk('local')->delete($chemin);
+                Storage::disk(Fichiers::disque())->delete($chemin);
             }
             throw ValidationException::withMessages(['montant' => $e->getMessage()]);
         }

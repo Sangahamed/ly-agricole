@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\OperationRefusee;
 use App\Models\Producteur;
 use App\Models\User;
+use App\Support\Fichiers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -47,7 +48,7 @@ class SuppressionFiches
 
             // Données personnelles : la photo part avec la fiche, une fois la suppression validée.
             if ($photo !== null) {
-                DB::afterCommit(fn () => Storage::disk('local')->delete($photo));
+                DB::afterCommit(fn () => Storage::disk(Fichiers::disque())->delete($photo));
             }
         });
     }

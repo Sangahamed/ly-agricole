@@ -68,7 +68,8 @@ class GestionApports extends Component
 
         $this->validate([
             'campagneId' => ['required', 'integer', Rule::exists('campagnes', 'id')],
-            'investisseurId' => ['nullable', 'integer', Rule::exists('users', 'id')],
+            // Liste ET saisie : l'id d'un investisseur à compte, ou un nom tapé (sans compte), ou vide = LY.
+            'investisseurId' => ['nullable', 'string', 'max:150'],
             'compteId' => ['required', 'integer', Rule::exists('comptes_tresorerie', 'id')],
             'montant' => ['required', Montant::regle()],
             'dateApport' => ['required', 'date', 'before_or_equal:today'],
@@ -78,11 +79,13 @@ class GestionApports extends Component
         /** @var User $auteur */
         $auteur = auth()->user();
 
+        [$investisseurId, $apporteurNom] = self::apporteur($this->investisseurId);
+
         try {
             Apports::enregistrer(
-                $this->investisseurId === '' ? null : (int) $this->investisseurId,
+                $investisseurId,
                 (int) $this->campagneId, (int) $this->compteId, (int) Montant::depuisSaisie($this->montant),
-                Carbon::parse($this->dateApport), $auteur, $this->motif ?: null,
+                Carbon::parse($this->dateApport), $auteur, $this->motif ?: null, $apporteurNom,
             );
         } catch (OperationRefusee $e) {
             throw ValidationException::withMessages(['montant' => $e->getMessage()]);
@@ -90,6 +93,25 @@ class GestionApports extends Component
 
         $this->formulaire = false;
         $this->statut = 'Apport enregistré.';
+    }
+
+    /**
+     * Valeur du champ « Investisseur » (liste et saisie à la fois) → [id du compte, nom saisi].
+     * Vide = LY ; l'id d'un investisseur actif = son compte ; tout autre texte = un nom.
+     *
+     * @return array{0: int|null, 1: string|null}
+     */
+    public static function apporteur(string $valeur): array
+    {
+        $valeur = trim($valeur);
+        if ($valeur === '' || $valeur === 'ly') {
+            return [null, null];
+        }
+        if (ctype_digit($valeur) && User::query()->whereKey((int) $valeur)->where('role', Role::Investisseur->value)->exists()) {
+            return [(int) $valeur, null];
+        }
+
+        return [null, $valeur];
     }
 
     public function preparerContrePassation(int $id): void
@@ -125,7 +147,10 @@ class GestionApports extends Component
         return view('livewire.investisseurs.gestion-apports', [
             'campagnes' => Campagne::query()->with('produit')->orderByDesc('debut')->get(),
             'campagne' => $campagne,
-            'comptesDedies' => $campagne ? CompteTresorerie::query()->where('campagne_id', $campagne->id)->orderBy('nom')->get() : collect(),
+            // Tous les comptes actifs (décision du 2026-10-07), ceux de la campagne en premier.
+            'comptesDedies' => CompteTresorerie::query()->where('actif', true)
+                ->orderByRaw('CASE WHEN campagne_id = ? THEN 0 ELSE 1 END', [$campagne->id ?? 0])->orderBy('nom')->get(),
+            'nomsSansCompte' => Apport::query()->whereNotNull('apporteur_nom')->distinct()->orderBy('apporteur_nom')->pluck('apporteur_nom'),
             'investisseurs' => User::query()->where('role', Role::Investisseur->value)->where('actif', true)->orderBy('nom')->get(),
             'apports' => $campagne
                 ? Apport::query()->where('campagne_id', $campagne->id)->with('investisseur', 'auteur', 'contrePassation')

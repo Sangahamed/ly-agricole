@@ -148,8 +148,8 @@ class ResultatDeCampagne extends Component
         if ($campagne !== null) {
             $etat = ResultatCampagne::etat($campagne);
             $repartition = Apports::repartition($campagne);
-            $noms = $repartition['lignes']->mapWithKeys(fn (array $l) => [$l['investisseur']->id => $l['investisseur']->nom]);
-            $investis = $repartition['lignes']->mapWithKeys(fn (array $l) => [$l['investisseur']->id => $l['montant']])->all();
+            $noms = $repartition['lignes']->mapWithKeys(fn (array $l) => [$l['cle'] => $l['nom']]);
+            $investis = $repartition['lignes']->mapWithKeys(fn (array $l) => [$l['cle'] => $l['montant']])->all();
             try {
                 $partage = PartageResultat::calculer($etat['resultat_net'], $investis, $repartition['parLy'], $this->fauteLy);
             } catch (OperationRefusee $e) {

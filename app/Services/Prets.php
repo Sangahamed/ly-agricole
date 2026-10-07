@@ -55,6 +55,7 @@ class Prets
             if ($campagne->statut === StatutCampagne::Cloturee) {
                 throw new OperationRefusee("La campagne {$campagne->code} est clôturée.");
             }
+            $campagne->exigerEnCours('prêt');
             if ($montant <= 0 || $montant > Tresorerie::MONTANT_MAX) {
                 throw new OperationRefusee('Le montant doit être un nombre entier de FCFA supérieur à zéro.');
             }

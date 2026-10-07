@@ -13,11 +13,13 @@ use Illuminate\Support\Carbon;
 
 /**
  * Registre immuable 🔒 : argent apporté à une campagne (contrat art. 5 et 9), par un
- * investisseur ou par LY elle-même (investisseur_id null). Montant signé : une
+ * investisseur à compte (investisseur_id), un investisseur sans compte (apporteur_nom, depuis le
+ * 2026-10-07) ou LY elle-même (ni l'un ni l'autre). Montant signé : une
  * contre-passation est négative.
  *
  * @property int $id
  * @property int|null $investisseur_id
+ * @property string|null $apporteur_nom
  * @property int $campagne_id
  * @property int $montant_fcfa
  * @property Carbon $date_apport
@@ -42,7 +44,13 @@ class Apport extends Model
 
     public function estDeLy(): bool
     {
-        return $this->investisseur_id === null;
+        return $this->investisseur_id === null && $this->apporteur_nom === null;
+    }
+
+    /** Nom affiché de qui a apporté : l'investisseur à compte, le nom saisi, ou LY. */
+    public function nomApporteur(): string
+    {
+        return $this->investisseur->nom ?? $this->apporteur_nom ?? 'LY AGRICOLE (apport propre)';
     }
 
     /** @return BelongsTo<User, $this> */

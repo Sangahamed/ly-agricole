@@ -175,10 +175,12 @@ class VentesTest extends TestCase
     }
 
     #[Test]
-    public function un_agent_ne_peut_pas_saisir_de_vente(): void
+    public function un_agent_saisit_une_vente_qui_attend_le_bureau_mais_l_agronome_ne_vend_pas(): void
     {
+        // Depuis le 2026-10-07, l'agent de terrain vend ; sa vente attend la validation du bureau.
         $this->remplirLeLot();
-        $this->refusAttendu(fn () => $this->vendre(auteur: $this->agent), 'saisir une vente');
+        $this->assertSame(StatutVente::AValider, $this->vendre(auteur: $this->agent)->statut);
+        $this->refusAttendu(fn () => $this->vendre(auteur: User::factory()->role(Role::Agronome)->create()), 'saisir une vente');
     }
 
     #[Test]

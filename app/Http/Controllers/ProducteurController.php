@@ -6,6 +6,7 @@ use App\Exceptions\OperationRefusee;
 use App\Models\Producteur;
 use App\Services\CarteProducteur;
 use App\Services\SuppressionFiches;
+use App\Support\Fichiers;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -52,9 +53,9 @@ class ProducteurController extends Controller
     public function photo(Producteur $producteur): StreamedResponse
     {
         Gate::authorize('voir-producteurs');
-        abort_if($producteur->photo === null || ! Storage::disk('local')->exists($producteur->photo), 404);
+        abort_if($producteur->photo === null || ! Storage::disk(Fichiers::disque())->exists($producteur->photo), 404);
 
-        return Storage::disk('local')->response($producteur->photo, headers: [
+        return Storage::disk(Fichiers::disque())->response($producteur->photo, headers: [
             'Cache-Control' => 'private, max-age=3600',
         ]);
     }

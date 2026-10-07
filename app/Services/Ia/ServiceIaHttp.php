@@ -3,6 +3,7 @@
 namespace App\Services\Ia;
 
 use App\Models\PhotoTerrain;
+use App\Support\Fichiers;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -13,7 +14,7 @@ class ServiceIaHttp implements ClientIa
 {
     public function diagnostiquer(PhotoTerrain $photo, string $culture): array
     {
-        $contenu = Storage::disk('local')->get($photo->chemin);
+        $contenu = Storage::disk(Fichiers::disque())->get($photo->chemin);
         if ($contenu === null) {
             throw new RuntimeException('Fichier de la photo introuvable sur le disque.');
         }

@@ -154,9 +154,13 @@ class Ventes
 
             if ($vente->statut === StatutVente::Valide) {
                 $contrePasses = Encaissement::query()->where('vente_id', $vente->id)->whereNotNull('annule_id')->pluck('annule_id');
-                Encaissement::query()->where('vente_id', $vente->id)->whereNull('annule_id')->whereNotIn('id', $contrePasses)
-                    ->orderBy('id')->get()
-                    ->each(fn (Encaissement $e) => Encaissements::contrePasser($e, $motif, $auteur));
+                $encaissements = Encaissement::query()->where('vente_id', $vente->id)->whereNull('annule_id')->whereNotIn('id', $contrePasses)
+                    ->orderBy('id')->get();
+                // L'argent encaissé ne ressort que par ceux qui encaissent (bureau), pas par l'agent auteur.
+                if ($encaissements->isNotEmpty() && ! $auteur->can('encaisser-ventes')) {
+                    throw new OperationRefusee('De l\'argent a déjà été encaissé sur cette vente : seuls la direction et la comptabilité peuvent l\'annuler.');
+                }
+                $encaissements->each(fn (Encaissement $e) => Encaissements::contrePasser($e, $motif, $auteur));
 
                 Stock::annulerSortieVente($vente, $motif, $auteur);
 

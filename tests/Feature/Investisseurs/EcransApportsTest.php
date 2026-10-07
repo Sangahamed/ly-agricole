@@ -93,20 +93,25 @@ class EcransApportsTest extends TestCase
     }
 
     #[Test]
-    public function un_apport_sans_compte_dedie_est_refuse_depuis_l_ecran(): void
+    public function un_nom_tape_dans_le_champ_investisseur_enregistre_un_investisseur_sans_compte(): void
     {
         $compteLibre = CompteTresorerie::factory()->create();
         $this->actingAs($this->direction);
 
         Livewire::test(GestionApports::class, ['campagneId' => (string) $this->campagne->id])
             ->call('ouvrir')
-            ->set('investisseurId', (string) $this->investisseurA->id)
+            ->assertSee($compteLibre->nom)
+            ->set('investisseurId', 'Coopérative Wassa')
             ->set('compteId', (string) $compteLibre->id)
             ->set('montant', '1 000 000')
             ->call('enregistrer')
-            ->assertHasErrors('montant');
+            ->assertHasNoErrors()
+            ->assertSee('Coopérative Wassa');
 
-        $this->assertSame(0, Apport::count());
+        $apport = Apport::query()->sole();
+        $this->assertNull($apport->investisseur_id);
+        $this->assertSame('Coopérative Wassa', $apport->apporteur_nom);
+        $this->assertFalse($apport->estDeLy());
     }
 
     #[Test]

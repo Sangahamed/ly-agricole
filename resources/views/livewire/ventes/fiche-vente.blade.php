@@ -63,6 +63,7 @@
         </div>
     </div>
 
+    @can('gerer-stock')
     <div class="rounded-xl border border-stone-200 bg-white p-5">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="font-semibold">Lot</h2>
@@ -87,6 +88,7 @@
             Frais de transport, taxes et commissions à la revente non compris (pas encore rattachés au lot) : marge estimée haute.
         </p>
     </div>
+    @endcan
 
     <div class="rounded-xl border border-stone-200 bg-white p-5">
         <div class="mb-4 flex items-center justify-between">

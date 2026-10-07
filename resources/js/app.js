@@ -25,5 +25,11 @@ document.addEventListener('keydown', (e) => {
     document.querySelectorAll('details[data-deroulant][open]').forEach((d) => d.removeAttribute('open'));
 });
 
+// Recherche dans toutes les listes déroulantes : voir recherche-listes.js.
+import './recherche-listes';
+
+// Bandeaux de succès et d'erreur : voir notifications-flash.js.
+import './notifications-flash';
+
 // Avis en direct (Reverb) pour un utilisateur connecté : voir echo.js.
 import './echo';

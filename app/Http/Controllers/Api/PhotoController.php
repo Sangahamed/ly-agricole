@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PhotoTerrain;
 use App\Models\User;
+use App\Support\Fichiers;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,7 +39,7 @@ class PhotoController extends Controller
         }
 
         $fichier = $request->file('fichier');
-        $chemin = $fichier->storeAs('terrain/photos/'.substr($uuid, 0, 8), $uuid.'.'.$fichier->extension(), 'local');
+        $chemin = $fichier->storeAs('terrain/photos/'.substr($uuid, 0, 8), $uuid.'.'.$fichier->extension(), Fichiers::disque());
 
         try {
             PhotoTerrain::query()->create([

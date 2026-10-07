@@ -105,9 +105,21 @@ class DeclencheursNotifications
         $motif = $m->getAttribute('motif_refus');
         $refus = is_string($motif) && $motif !== '' ? " Motif : {$motif}" : '';
 
+        // Annulé par son propre auteur : rien à lui apprendre.
+        $annuleur = $m->getAttribute('annule_par');
+        if ($annuleur !== null && $annuleur === $m->getAttribute('cree_par')) {
+            return null;
+        }
+
         return match (true) {
-            $m instanceof Achat && $m->statut === StatutAchat::Annule => ['titre' => "Achat {$m->reference} annulé par la direction",
+            $m instanceof Achat && $m->statut === StatutAchat::Annule => ['titre' => "Achat {$m->reference} annulé",
                 'texte' => $m->nomFournisseur().'. Motif : '.$m->getAttribute('motif_annulation'), 'url' => route('achats')],
+            $m instanceof Vente && $m->statut === StatutVente::Annule => ['titre' => "Vente {$m->reference} annulée",
+                'texte' => $m->acheteur_nom.'. Motif : '.$m->getAttribute('motif_annulation'), 'url' => route('ventes.fiche', $m)],
+            $m instanceof Pret && $m->statut === StatutPret::Annule => ['titre' => "Prêt {$m->reference} annulé",
+                'texte' => $m->producteur->nomComplet().'. Motif : '.$m->getAttribute('motif_annulation'), 'url' => route('prets.fiche', $m)],
+            $m instanceof Depense && $m->statut === StatutDepense::Annulee => ['titre' => 'Dépense annulée',
+                'texte' => Format::fcfa($m->montant_fcfa).' à '.$m->beneficiaire.'. '.$m->getAttribute('motif_refus'), 'url' => route('depenses')],
             $m instanceof Achat && $avant === StatutAchat::AValider => $m->statut === StatutAchat::Valide
                 ? ['titre' => "Achat {$m->reference} validé", 'texte' => Format::kg($m->poids_net_g).' — '.$m->nomFournisseur().'.', 'url' => route('achats')]
                 : ['titre' => "Achat {$m->reference} refusé", 'texte' => $m->nomFournisseur().'.'.$refus, 'url' => route('achats')],

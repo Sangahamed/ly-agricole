@@ -6,6 +6,8 @@ use App\Enums\NatureMouvement;
 use App\Enums\Role;
 use App\Enums\TypeCompte;
 use App\Exceptions\OperationRefusee;
+use App\Livewire\Investisseurs\GestionApports;
+use App\Models\Apport;
 use App\Models\Campagne;
 use App\Models\CompteTresorerie;
 use App\Models\User;
@@ -112,6 +114,19 @@ class Comptes extends Component
         $this->formulaire = null;
     }
 
+    /** Apport : la campagne du compte choisi est proposée d'office (modifiable). */
+    public function updatedCompteId(): void
+    {
+        if ($this->nature === NatureMouvement::ApportCampagne->value && $this->campagneId === '' && ctype_digit($this->compteId)) {
+            $this->campagneId = (string) (CompteTresorerie::query()->whereKey((int) $this->compteId)->value('campagne_id') ?? '');
+        }
+    }
+
+    public function updatedNature(): void
+    {
+        $this->updatedCompteId();
+    }
+
     private function saisirOperation(): void
     {
         $regles = [
@@ -124,7 +139,9 @@ class Comptes extends Component
         if ($this->formulaire === 'entree') {
             $regles['nature'] = ['required', Rule::in(array_keys(self::naturesEntree()))];
             if ($this->nature === NatureMouvement::ApportCampagne->value) {
-                $regles['investisseurId'] = ['required', Rule::in(['ly', ...User::query()->where('role', Role::Investisseur->value)->pluck('id')->map(fn ($id) => (string) $id)->all()])];
+                // Liste ET saisie, comme l'écran Apports : un investisseur à compte, un nom tapé, ou « ly ».
+                $regles['investisseurId'] = ['required', 'string', 'max:150'];
+                $regles['campagneId'] = ['required', 'integer', Rule::exists('campagnes', 'id')];
             }
         } else {
             $regles['compteDestinationId'] = ['required', 'integer', 'different:compteId', Rule::exists('comptes_tresorerie', 'id')];
@@ -153,9 +170,9 @@ class Comptes extends Component
                 // Apport d'un investisseur : passe par le registre des apports (contrat art. 5 et 9), donc
                 // compte dédié à une campagne, et il compte dans la quote-part de l'investisseur (/apports).
                 $this->formulaire === 'entree' && $this->nature === NatureMouvement::ApportCampagne->value => Apports::enregistrer(
-                    $this->investisseurId === 'ly' ? null : (int) $this->investisseurId,
-                    $compte->campagne_id ?? throw new OperationRefusee("Un apport d'investisseur va sur le compte dédié à une campagne : « {$compte->nom} » n'est rattaché à aucune campagne."),
+                    GestionApports::apporteur($this->investisseurId)[0], (int) $this->campagneId,
                     $compte->id, $montant, $date, $auteur, trim($this->libelle.($this->reference !== '' ? ' — réf. '.$this->reference : '')),
+                    GestionApports::apporteur($this->investisseurId)[1],
                 ),
                 $this->formulaire === 'entree' => Tresorerie::entree($compte, $montant, NatureMouvement::from($this->nature), $date, $this->libelle, $auteur, $this->reference ?: null),
                 $this->formulaire === 'virement' => Tresorerie::virement($compte, CompteTresorerie::query()->findOrFail((int) $this->compteDestinationId), $montant, $date, $this->libelle, $auteur, reference: $this->reference ?: null),
@@ -198,6 +215,7 @@ class Comptes extends Component
             'types' => TypeCompte::cases(),
             'natures' => self::naturesEntree(),
             'investisseurs' => User::query()->where('role', Role::Investisseur->value)->where('actif', true)->orderBy('nom')->get(),
+            'nomsSansCompte' => Apport::query()->whereNotNull('apporteur_nom')->distinct()->orderBy('apporteur_nom')->pluck('apporteur_nom'),
             'agents' => User::query()->where('role', Role::Agent->value)->where('actif', true)->orderBy('nom')->get(),
             'campagnes' => Campagne::query()->with('produit')->orderByDesc('debut')->get(),
         ]);

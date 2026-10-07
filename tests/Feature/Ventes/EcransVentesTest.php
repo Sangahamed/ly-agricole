@@ -82,7 +82,8 @@ class EcransVentesTest extends TestCase
         return [
             'direction' => [Role::Direction, 200, 200],
             'comptable' => [Role::Comptable, 200, 200],
-            'agent' => [Role::Agent, 403, 403],
+            // Depuis le 2026-10-07, l'agent de terrain vend aussi (ses ventes seulement).
+            'agent' => [Role::Agent, 200, 200],
             'agronome' => [Role::Agronome, 403, 403],
             'admin' => [Role::Admin, 403, 403],
             'investisseur' => [Role::Investisseur, 403, 403],

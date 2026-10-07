@@ -12,10 +12,12 @@ use App\Models\Achat;
 use App\Models\CompteTresorerie;
 use App\Models\Depense;
 use App\Models\Parametre;
+use App\Models\PhotoTerrain;
 use App\Models\Pret;
 use App\Support\Tableau;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Rapports de la direction (semaine 10) : « combien reste dû, combien en stock, combien
@@ -236,7 +238,14 @@ class Rapports
             $lignes[] = ['Dépense à valider', $d->beneficiaire, Tableau::afficher($d->montant_fcfa, Tableau::FCFA), $d->date_depense];
         }
 
-        $attendues = Achat::query()->whereNotNull('photo_pesee')->whereDoesntHave('photoPesee')->orderBy('date_achat')->get();
+        // Pas de whereDoesntHave : `achats.photo_pesee` est du texte, `photos_terrain.id` un uuid,
+        // et PostgreSQL (production) refuse « uuid = character varying » (500 sur /rapports,
+        // 2026-10-07). On compare en PHP, sur les seuls identifiants bien formés.
+        $avecPhoto = Achat::query()->whereNotNull('photo_pesee')->orderBy('date_achat')->get();
+        $recues = PhotoTerrain::query()
+            ->whereIn('id', $avecPhoto->pluck('photo_pesee')->filter(fn ($id) => Str::isUuid((string) $id))->values())
+            ->pluck('id')->map(fn ($id) => strtolower((string) $id))->flip();
+        $attendues = $avecPhoto->reject(fn (Achat $a) => $recues->has(strtolower((string) $a->photo_pesee)));
         foreach ($attendues as $a) {
             $lignes[] = ['Photo de pesée attendue', $a->reference, 'La photo n\'est pas encore arrivée du téléphone.', $a->date_achat];
         }

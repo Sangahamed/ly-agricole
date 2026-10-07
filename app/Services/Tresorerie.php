@@ -156,11 +156,11 @@ class Tresorerie
      * crée ensuite la ligne immuable avec le mouvement déjà en main (la source est la
      * campagne, seule chose qui existe déjà avant l'apport lui-même).
      */
-    public static function enregistrerApport(Campagne $campagne, ?User $investisseur, CompteTresorerie $compte, int $montant, Carbon $date, User $auteur): MouvementTresorerie
+    public static function enregistrerApport(Campagne $campagne, ?User $investisseur, CompteTresorerie $compte, int $montant, Carbon $date, User $auteur, ?string $apporteurNom = null): MouvementTresorerie
     {
-        return DB::transaction(function () use ($campagne, $investisseur, $compte, $montant, $date, $auteur) {
+        return DB::transaction(function () use ($campagne, $investisseur, $compte, $montant, $date, $auteur, $apporteurNom) {
             $comptes = self::verrouiller([$compte->id]);
-            $nomApporteur = $investisseur === null ? 'LY AGRICOLE (apport propre)' : $investisseur->nom;
+            $nomApporteur = $investisseur->nom ?? $apporteurNom ?? 'LY AGRICOLE (apport propre)';
             $libelle = 'Apport campagne '.$campagne->code.' — '.$nomApporteur;
 
             return self::ecrire($comptes[$compte->id], SensMouvement::Entree, $montant, NatureMouvement::ApportCampagne, $date, $libelle, $auteur, source: $campagne);

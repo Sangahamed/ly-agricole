@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Listes déroulantes avec recherche (resources/js/recherche-listes.js). */
+@import 'tom-select/dist/css/tom-select.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/livewire/src/Features/SupportPagination/views/*.blade.php';
@@ -7,4 +9,33 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Tom Select : le bloc reprend les classes Tailwind du <select> d'origine (bordure, marges) ;
+   on neutralise donc le cadre propre à Tom Select pour ne pas en avoir deux. */
+.ts-wrapper.single .ts-control,
+.ts-wrapper.single.input-active .ts-control {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    min-height: 0;
+    font-size: inherit;
+    line-height: inherit;
+}
+.ts-wrapper.single .ts-control::after {
+    border-color: var(--color-stone-500) transparent transparent transparent;
+}
+.ts-wrapper.focus {
+    border-color: var(--color-emerald-600);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-emerald-600) 20%, transparent);
+}
+.ts-dropdown {
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    z-index: 60;
+}
+.ts-dropdown .active {
+    background-color: var(--color-emerald-50);
+    color: var(--color-emerald-900);
 }

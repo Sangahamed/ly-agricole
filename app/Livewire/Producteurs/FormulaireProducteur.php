@@ -12,6 +12,7 @@ use App\Models\Producteur;
 use App\Models\Village;
 use App\Services\DetectionDoublons;
 use App\Services\Journal;
+use App\Support\Fichiers;
 use App\Support\Telephone;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
@@ -195,7 +196,7 @@ class FormulaireProducteur extends Component
         ];
 
         $anciennePhoto = $existant?->photo;
-        $nouvellePhoto = $this->photo?->store('producteurs/photos', 'local');
+        $nouvellePhoto = $this->photo?->store('producteurs/photos', Fichiers::disque());
         if ($nouvellePhoto !== null) {
             $attributs['photo'] = $nouvellePhoto;
         }
@@ -205,14 +206,14 @@ class FormulaireProducteur extends Component
         } catch (\Throwable $e) {
             // Pas de photo orpheline si la fiche n'a pas été écrite.
             if ($nouvellePhoto !== null) {
-                Storage::disk('local')->delete($nouvellePhoto);
+                Storage::disk(Fichiers::disque())->delete($nouvellePhoto);
             }
             throw $e;
         }
 
         // Minimisation : l'ancienne photo d'identité ne reste pas sur le disque.
         if ($nouvellePhoto !== null && $anciennePhoto !== null) {
-            Storage::disk('local')->delete($anciennePhoto);
+            Storage::disk(Fichiers::disque())->delete($anciennePhoto);
         }
 
         session()->flash('statut', $existant ? 'Fiche modifiée.' : "Fiche créée : {$producteur->code}.");

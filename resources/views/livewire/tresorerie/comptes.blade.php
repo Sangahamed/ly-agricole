@@ -64,7 +64,7 @@
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                         <label for="compteId" class="mb-1 block text-sm font-medium text-stone-700">{{ $formulaire === 'entree' ? 'Compte' : 'Depuis le compte' }}</label>
-                        <select wire:model="compteId" id="compteId" class="{{ $champ }}">
+                        <select wire:model.live="compteId" id="compteId" class="{{ $champ }}">
                             <option value="">— Choisir —</option>
                             @foreach ($comptes->where('actif', true) as $c)
                                 <option value="{{ $c->id }}">{{ $c->nom }} ({{ \App\Support\Format::fcfa($soldes[$c->id]) }})</option>
@@ -87,15 +87,29 @@
                         @if ($nature === 'apport_campagne')
                             <div>
                                 <label for="investisseurId" class="mb-1 block text-sm font-medium text-stone-700">Investisseur</label>
-                                <select wire:model="investisseurId" id="investisseurId" class="{{ $champ }}">
-                                    <option value="">— Choisir —</option>
+                                {{-- Liste ET saisie : choisir, ou taper un nom (investisseur sans compte). --}}
+                                <select wire:model="investisseurId" id="investisseurId" data-recherche-creer class="{{ $champ }}">
+                                    <option value="">— Choisir ou taper un nom —</option>
                                     @foreach ($investisseurs as $i)
                                         <option value="{{ $i->id }}">{{ $i->nom }}</option>
+                                    @endforeach
+                                    @foreach ($nomsSansCompte as $nomSansCompte)
+                                        <option value="{{ $nomSansCompte }}">{{ $nomSansCompte }} (sans compte)</option>
                                     @endforeach
                                     <option value="ly">LY AGRICOLE (apport propre)</option>
                                 </select>
                                 @error('investisseurId') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
-                                <p class="mt-1 text-xs text-stone-500">Choisir comme compte celui de la campagne. L'apport apparaît aussi dans l'onglet Apports et compte dans la part de l'investisseur.</p>
+                                <p class="mt-1 text-xs text-stone-500">L'apport apparaît aussi dans l'onglet Apports et compte dans la part de l'investisseur.</p>
+                            </div>
+                            <div>
+                                <label for="campagneApport" class="mb-1 block text-sm font-medium text-stone-700">Campagne</label>
+                                <select wire:model="campagneId" id="campagneApport" class="{{ $champ }}">
+                                    <option value="">— Choisir —</option>
+                                    @foreach ($campagnes as $camp)
+                                        <option value="{{ $camp->id }}">{{ $camp->produit->nom }} {{ $camp->code }}</option>
+                                    @endforeach
+                                </select>
+                                @error('campagneId') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
                             </div>
                         @endif
                     @else

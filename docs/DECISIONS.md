@@ -156,3 +156,31 @@ joignable. Et le jeton, les poids et les montants ne doivent pas circuler en cla
 
 **Ce qui la ferait changer.** Rien pour la production. Pour un essai au bureau, une
 build de dev suffit.
+
+## D12 — Fichiers sur Cloudflare R2 en production (2026-10-07)
+
+**Choix.** Justificatifs, reçus signés, accords écrits et photos vont sur le disque
+`config('filesystems.fichiers')` (`App\Support\Fichiers::disque()`) : `local` sur un poste,
+`r2` (Cloudflare R2, compatible S3) en production. Les envois Livewire attendent aussi sur R2
+(`LIVEWIRE_TMP_DISK=r2`, `config/livewire.php`).
+
+**Pourquoi.** Vercel n'écrit pas sur son disque (lecture seule, sauf `/tmp` qui change d'une
+requête à l'autre) : tout envoi de fichier y finissait en erreur 500. R2 : gratuit jusqu'à
+10 Go, choisi par l'utilisateur parmi R2, S3 et Vercel Blob.
+
+**Ce qui la ferait changer.** Un hébergement avec un vrai disque persistant.
+
+## D13 — Apports : tout compte actif, investisseur sans compte, fin de campagne (2026-10-07)
+
+**Choix.** (1) Un apport peut aller sur **tout compte actif** (choix de l'utilisateur) :
+l'art. 5 du contrat (compte dédié à la campagne) n'est plus imposé par le logiciel ; l'écran
+signale le compte de la campagne. (2) Le champ « Investisseur » est une liste ET une saisie :
+un nom tapé = investisseur **sans compte** (`apports.apporteur_nom`), compté dans les parts et
+le résultat comme les autres ; même nom à la casse près = même investisseur. (3) Après la date
+de fin d'une campagne (ou clôturée) : plus d'apport, de prêt ni d'achat, jugé sur la **date de
+l'opération** (un achat hors ligne fait avant la fin passe quand il arrive après) ; ventes,
+encaissements, dépenses et remboursements continuent. La campagne n'est pas clôturée
+automatiquement : la clôture (résultat, partage) reste une décision.
+
+**À confirmer par le responsable projet.** L'abandon du compte dédié (art. 5) touche à ce qui
+est promis aux investisseurs.

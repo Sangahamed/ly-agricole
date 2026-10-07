@@ -28,6 +28,12 @@ return [
     |
     */
 
+    /*
+    | Disque des fichiers de l'application (justificatifs, reçus, accords, photos) : `local`
+    | sur un poste, `r2` en production. Une clé vide vaut absente (piège .env, CLAUDE.md).
+    */
+    'fichiers' => env('FICHIERS_DISK') ?: 'local',
+
     'disks' => [
 
         'local' => [
@@ -45,6 +51,22 @@ return [
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+        ],
+
+        // Cloudflare R2 (compatible S3) : justificatifs, reçus, photos en production (2026-10-07).
+        // Vercel n'écrit pas sur son disque : sans R2, tout envoi de fichier y échoue (500).
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID') ?: null,
+            'secret' => env('R2_SECRET_ACCESS_KEY') ?: null,
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET') ?: null,
+            // https://<id du compte>.r2.cloudflarestorage.com
+            'endpoint' => env('R2_ENDPOINT') ?: null,
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
         ],
 
         's3' => [

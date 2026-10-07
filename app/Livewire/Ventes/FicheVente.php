@@ -48,6 +48,8 @@ class FicheVente extends Component
     public function mount(Vente $vente): void
     {
         $this->authorize('voir-ventes');
+        // Un agent ne voit que ses propres ventes (comme ses achats) ; bureau : toutes.
+        abort_unless(auth()->user()?->can('valider-ventes') || $vente->cree_par === auth()->id(), 403);
         $this->venteId = $vente->id;
         $this->dateEncaissement = now()->format('Y-m-d');
     }
@@ -153,7 +155,7 @@ class FicheVente extends Component
 
         return view('livewire.ventes.fiche-vente', [
             'vente' => $vente,
-            'marge' => Ventes::margeLot($vente->lot),
+            'marge' => $this->moi()->can('gerer-stock') ? Ventes::margeLot($vente->lot) : null,
             'comptes' => CompteTresorerie::query()->where('actif', true)->orderBy('nom')->get(),
             'peutAnnuler' => in_array($vente->statut, [StatutVente::AValider, StatutVente::Valide], true)
                 && $this->moi()->can('annuler-operation', $vente),

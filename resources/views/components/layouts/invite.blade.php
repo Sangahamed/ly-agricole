@@ -7,9 +7,11 @@
         <title>{{ $title ?? 'Connexion' }} — {{ config('app.name') }}</title>
 
         @fonts
+        @include('partials.icones')
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen bg-stone-100 text-stone-900 antialiased">
+    {{-- Messages posés avant une redirection : affichés en bandeau (resources/js/notifications-flash.js). --}}
+    <body class="min-h-screen bg-stone-100 text-stone-900 antialiased" data-flash-statut="{{ session('statut') }}" data-flash-erreur="{{ session('erreur') ?? $errors->first() }}">
         <div class="grid min-h-screen lg:grid-cols-2">
             {{-- Présentation : rien ici ne mène à un écran, uniquement du texte et l'identité. --}}
             <div class="hidden flex-col justify-between bg-emerald-900 p-10 text-white lg:flex xl:p-14">

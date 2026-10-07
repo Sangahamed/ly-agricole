@@ -16,6 +16,7 @@ use App\Models\Producteur;
 use App\Models\User;
 use App\Services\CautionSolidaire;
 use App\Services\Prets;
+use App\Support\Fichiers;
 use App\Support\Format;
 use App\Support\Montant;
 use Illuminate\Contracts\View\View;
@@ -131,7 +132,7 @@ class FormulairePret extends Component
 
         /** @var User $auteur */
         $auteur = auth()->user();
-        $chemin = $this->partieLiee ? $this->accordEcrit?->store('prets/accords', 'local') : null;
+        $chemin = $this->partieLiee ? $this->accordEcrit?->store('prets/accords', Fichiers::disque()) : null;
         $donnees = [
             'producteur_id' => $this->producteurId,
             'campagne_id' => (int) $this->campagneId,
@@ -157,7 +158,7 @@ class FormulairePret extends Component
             });
         } catch (OperationRefusee $e) {
             if ($chemin) {
-                Storage::disk('local')->delete($chemin);
+                Storage::disk(Fichiers::disque())->delete($chemin);
             }
             throw ValidationException::withMessages(['montant' => $e->getMessage()]);
         }

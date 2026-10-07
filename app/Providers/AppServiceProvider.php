@@ -187,10 +187,11 @@ class AppServiceProvider extends ServiceProvider
         // Remboursement d'un prêt en espèces : encaissé par la comptabilité.
         Gate::define('encaisser-remboursements', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable));
 
-        // Reventes (cahier §7) : négociées au bureau, pas sur le terrain — contrairement
-        // aux achats, pas de droit agent ici. Encaissement : même droit que la trésorerie.
-        Gate::define('voir-ventes', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable));
-        Gate::define('saisir-ventes', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable));
+        // Reventes (cahier §7). Depuis le 2026-10-07, l'agent de terrain vend aussi (demande du
+        // développeur) : il saisit et voit SES ventes, comme ses achats ; la validation (au-dessus
+        // du seuil) et l'encaissement restent au bureau, comme la trésorerie.
+        Gate::define('voir-ventes', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable, Role::Agent));
+        Gate::define('saisir-ventes', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable, Role::Agent));
         Gate::define('valider-ventes', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable));
         Gate::define('encaisser-ventes', fn (User $user) => $user->aLeRole(Role::Direction, Role::Comptable));
 

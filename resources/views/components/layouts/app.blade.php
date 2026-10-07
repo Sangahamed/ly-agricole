@@ -18,9 +18,11 @@
         <title>{{ $title ?? config('app.name') }} — {{ config('app.name') }}</title>
 
         @fonts
+        @include('partials.icones')
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen bg-stone-100 text-stone-900 antialiased">
+    {{-- Messages posés avant une redirection : affichés en bandeau (resources/js/notifications-flash.js). --}}
+    <body class="min-h-screen bg-stone-100 text-stone-900 antialiased" data-flash-statut="{{ session('statut') }}" data-flash-erreur="{{ session('erreur') ?? $errors->first() }}">
         {{-- Voile derrière le menu sur téléphone --}}
         <div data-menu-voile class="fixed inset-0 z-30 hidden bg-stone-900/40 lg:hidden"></div>
 

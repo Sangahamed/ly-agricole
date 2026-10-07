@@ -6,6 +6,8 @@
 
         <title>Accès refusé — {{ config('app.name') }}</title>
 
+        @include('partials.icones')
+
         @vite(['resources/css/app.css'])
     </head>
     <body class="flex min-h-screen items-center justify-center bg-stone-50 px-4 text-stone-900 antialiased">

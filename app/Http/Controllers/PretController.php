@@ -6,6 +6,7 @@ use App\Models\Decaissement;
 use App\Models\MouvementIntrant;
 use App\Models\Pret;
 use App\Services\RecuRemise;
+use App\Support\Fichiers;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -38,8 +39,8 @@ class PretController extends Controller
     private function servir(?string $chemin): StreamedResponse
     {
         Gate::authorize('voir-prets');
-        abort_if($chemin === null || ! Storage::disk('local')->exists($chemin), 404);
+        abort_if($chemin === null || ! Storage::disk(Fichiers::disque())->exists($chemin), 404);
 
-        return Storage::disk('local')->response($chemin, headers: ['Cache-Control' => 'private, max-age=3600']);
+        return Storage::disk(Fichiers::disque())->response($chemin, headers: ['Cache-Control' => 'private, max-age=3600']);
     }
 }

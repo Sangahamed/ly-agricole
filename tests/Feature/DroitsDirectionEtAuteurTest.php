@@ -329,6 +329,28 @@ class DroitsDirectionEtAuteurTest extends TestCase
     }
 
     #[Test]
+    public function un_agent_vend_voit_ses_ventes_seulement_et_le_bureau_valide(): void
+    {
+        $this->remplirLeLot();
+        $vente = $this->vendre($this->agent, 200_000);
+        $this->assertSame(StatutVente::AValider, $vente->statut);
+        $this->refusAttendu(fn () => Ventes::valider($vente, $this->agent), 'Votre rôle');
+
+        $autre = $this->vendre($this->direction, 100_000);
+        $this->actingAs($this->autreAgent)->get(route('ventes.fiche', $vente))->assertForbidden();
+        $this->actingAs($this->agent)->get(route('ventes.fiche', $vente))->assertOk()->assertDontSee('Marge du lot');
+        $this->actingAs($this->agent)->get(route('ventes.fiche', $autre))->assertForbidden();
+
+        Ventes::valider($vente, $this->comptable);
+        $this->assertSame(200_000, $this->lot->stock());
+
+        // Encaissée par le bureau : l'agent ne peut plus l'annuler, la direction si.
+        Encaissements::encaisser($vente->refresh(), $this->caisse, 50_000, Carbon::today(), $this->comptable);
+        $this->refusAttendu(fn () => Ventes::annuler($vente, $this->agent, 'Acheteur parti'), 'déjà été encaissé');
+        $this->assertSame(StatutVente::Annule, Ventes::annuler($vente, $this->direction, 'Acheteur parti')->statut);
+    }
+
+    #[Test]
     public function la_tresorerie_enregistre_l_apport_d_un_investisseur_dans_le_registre_des_apports(): void
     {
         $investisseur = User::factory()->role(Role::Investisseur)->create(['nom' => 'Fonds A']);
@@ -351,16 +373,20 @@ class DroitsDirectionEtAuteurTest extends TestCase
         $this->assertSame(2_000_000, $apport->montant_fcfa);
         $this->assertSame(2_000_000, $compteDedie->solde());
 
-        // Sur un compte sans campagne : refusé, rien n'entre.
+        // Sur un compte sans campagne (permis depuis le 2026-10-07) : il faut choisir la campagne ;
+        // un nom tapé = investisseur sans compte.
         Livewire::actingAs($this->comptable)->test(Comptes::class)
             ->call('ouvrir', 'entree')
             ->set('compteId', (string) $this->caisse->id)
             ->set('nature', 'apport_campagne')
-            ->set('investisseurId', (string) $investisseur->id)
+            ->set('investisseurId', 'Fonds B sans compte')
             ->set('montant', '1000')
-            ->set('libelle', 'Erreur')
+            ->set('libelle', 'Souscription')
             ->call('enregistrer')
-            ->assertHasErrors('montant');
-        $this->assertSame(1, Apport::query()->count());
+            ->assertHasErrors('campagneId')
+            ->set('campagneId', (string) $this->campagne->id)
+            ->call('enregistrer')
+            ->assertHasNoErrors();
+        $this->assertSame('Fonds B sans compte', Apport::query()->latest('id')->first()?->apporteur_nom);
     }
 }

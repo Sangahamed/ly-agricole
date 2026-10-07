@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ActionJournal;
 use App\Models\Producteur;
 use App\Support\CodeQr;
+use App\Support\Fichiers;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
@@ -24,9 +25,9 @@ class CarteProducteur
         $producteur->loadMissing('village.zone');
 
         $photo = null;
-        if ($producteur->photo !== null && Storage::disk('local')->exists($producteur->photo)) {
-            $photo = 'data:'.Storage::disk('local')->mimeType($producteur->photo).';base64,'
-                .base64_encode((string) Storage::disk('local')->get($producteur->photo));
+        if ($producteur->photo !== null && Storage::disk(Fichiers::disque())->exists($producteur->photo)) {
+            $photo = 'data:'.Storage::disk(Fichiers::disque())->mimeType($producteur->photo).';base64,'
+                .base64_encode((string) Storage::disk(Fichiers::disque())->get($producteur->photo));
         }
 
         $pdf = Pdf::loadView('producteurs.carte', [

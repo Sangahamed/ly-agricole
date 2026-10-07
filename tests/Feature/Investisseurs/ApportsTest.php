@@ -65,13 +65,40 @@ class ApportsTest extends TestCase
     }
 
     #[Test]
-    public function un_apport_sur_un_compte_non_dedie_est_refuse(): void
+    public function un_apport_va_sur_tout_compte_actif_mais_pas_un_compte_desactive(): void
     {
+        // Depuis le 2026-10-07 (choix du développeur) : l'art. 5 n'est plus imposé par le logiciel.
         $compteLibre = CompteTresorerie::factory()->create();
+        $apport = Apports::enregistrer($this->investisseurA->id, $this->campagne->id, $compteLibre->id, 1_000_000, Carbon::today(), $this->direction);
+        $this->assertSame(1_000_000, $compteLibre->solde());
+        $this->assertSame($this->campagne->id, $apport->campagne_id);
 
+        $compteFerme = CompteTresorerie::factory()->create(['actif' => false]);
         $this->refusAttendu(
-            fn () => Apports::enregistrer($this->investisseurA->id, $this->campagne->id, $compteLibre->id, 1_000_000, Carbon::today(), $this->direction),
-            'compte dédié',
+            fn () => Apports::enregistrer($this->investisseurA->id, $this->campagne->id, $compteFerme->id, 1_000_000, Carbon::today(), $this->direction),
+            'désactivé',
+        );
+    }
+
+    #[Test]
+    public function un_investisseur_sans_compte_compte_par_son_nom_dans_les_parts(): void
+    {
+        Apports::enregistrer(null, $this->campagne->id, $this->compteDedie->id, 1_000_000, Carbon::today(), $this->direction, null, 'Koné  Ibrahim');
+        Apports::enregistrer(null, $this->campagne->id, $this->compteDedie->id, 500_000, Carbon::today(), $this->direction, null, 'koné ibrahim');
+        Apports::enregistrer($this->investisseurA->id, $this->campagne->id, $this->compteDedie->id, 1_500_000, Carbon::today(), $this->direction);
+        Apports::enregistrer(null, $this->campagne->id, $this->compteDedie->id, 700_000, Carbon::today(), $this->direction);
+
+        $r = Apports::repartition($this->campagne);
+
+        $this->assertSame(700_000, $r['parLy']);
+        $this->assertSame(3_000_000, $r['parInvestisseurs']);
+        $nom = $r['lignes']->firstWhere('investisseur', null);
+        $this->assertSame('Koné Ibrahim', $nom['nom']);
+        $this->assertSame(1_500_000, $nom['montant']);
+        $this->assertSame(500, $nom['part_pour_mille']);
+        $this->refusAttendu(
+            fn () => Apports::enregistrer($this->investisseurA->id, $this->campagne->id, $this->compteDedie->id, 1, Carbon::today(), $this->direction, null, 'Autre'),
+            'pas les deux',
         );
     }
 

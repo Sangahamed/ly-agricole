@@ -43,7 +43,7 @@ class PortailInvestisseur extends Component
             $repartition = Apports::repartition($campagne);
             $mesApports = Apport::query()->where('investisseur_id', $moi->id)->where('campagne_id', $campagne->id)
                 ->orderByDesc('date_apport')->get();
-            $maLigne = $repartition['lignes']->firstWhere(fn ($l) => $l['investisseur']->id === $moi->id);
+            $maLigne = $repartition['lignes']->firstWhere(fn ($l) => $l['investisseur']?->id === $moi->id);
 
             return [
                 'campagne' => $campagne,
